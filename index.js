@@ -148,10 +148,8 @@ module.exports = {
 			params: {
 				id: [
 					{ type: "string" },
-					{ type: "number" },
-					{ type: "array" }
-				],
-				mapping: { type: "boolean", optional: true }
+					{ type: "number" }
+				]
 			},
 			async handler(ctx) {
 				const stream = await this._get(ctx, ctx.params);
