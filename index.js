@@ -1,6 +1,7 @@
 /*
- * moleculer-db
- * Copyright (c) 2019 MoleculerJS (https://github.com/moleculerjs/moleculer-db)
+ * moleculer-files
+ * Copyright (c) 2019 Daniele Draganti
+ Largely inspired by MoleculerJS' Moleculer-DB (https://github.com/moleculerjs/moleculer-db)
  * MIT Licensed
  */
 
