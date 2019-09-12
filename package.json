@@ -1,0 +1,22 @@
+{
+  "name": "moleculer-files",
+  "version": "0.0.1",
+  "description": "Mixin to handle file streams directly from services.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "moleculer",
+    "stream",
+    "file"
+  ],
+  "author": "Daniele Draganti",
+  "license": "MIT",
+  "devDependencies": {
+    "moleculer": "^0.13.10"
+  },
+  "dependencies": {
+    "bluebird": "^3.5.5"
+  }
+}
