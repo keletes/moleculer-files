@@ -436,7 +436,9 @@ module.exports = {
 
 		_save(ctx, meta) {
 			let entity = ctx.params;
-			return this.adapter.save(entity, meta);
+			let result = await this.adapter.save(entity, meta);
+			console.log('result _save', result);
+			return result
 		},
 
 		async _get(ctx, params) {
