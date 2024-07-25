@@ -18,26 +18,27 @@ import { Context, Errors, ServiceSchema } from "moleculer";
 import { FileNotFoundError } from "./errors";
 import pkg from "./package.json";
 
+export type QueryParams = {
+	id?: number | string;
+	limit?: number,
+	offset?: number,
+	page?: number,
+	pageSize?: number,
+	sort?: string | string[],
+	fields?: string | string[],
+	populate?: string | string[],
+	searchFields?: string | string[],
+}
+
 export interface AdapterSchema {
-	params: {
-		id?: number | string;
-		limit?: number,
-		offset?: number,
-		page?: number,
-		pageSize?: number,
-		sort?: string | string[],
-		fields?: string | string[],
-		populate?: string | string[],
-		searchFields?: string | string[],
-	},
 	connect?: Function;
 	disconnect?: Function;
-	find?: (params: AdapterSchema['params']) => Promise<any[]>;
-	findById?: (id: AdapterSchema['params']['id']) => Promise<ReadableStream>;
-	count?: (params: AdapterSchema['params']) => Promise<number>;
+	find?: (params: QueryParams) => Promise<any[]>;
+	findById?: (id: QueryParams['id']) => Promise<ReadableStream>;
+	count?: (params: QueryParams) => Promise<number>;
 	save?: (entity: WritableStream, meta: any) => Promise<any>;
 	updateById?: (entity: WritableStream, meta: any) => Promise<any>;
-	removeById?: (id: AdapterSchema['params']['id']) => Promise<any[]>;
+	removeById?: (id: QueryParams['id']) => Promise<any[]>;
 	afterRetrieveTransformID?: (document: any, idField: string) => Promise<any>;
 };
 
@@ -261,7 +262,7 @@ const MoleculerFilesAdapter: ServiceSchema<AdapterSettings> & AdapterProperties 
 		 * @param {any} params
 		 * @returns {Promise}
 		 */
-		sanitizeParams(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, params: AdapterSchema['params']) {
+		sanitizeParams(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, params: QueryParams) {
 			let p = Object.assign({}, params);
 
 			// Convert from string to number
@@ -326,7 +327,7 @@ const MoleculerFilesAdapter: ServiceSchema<AdapterSettings> & AdapterProperties 
 			return Promise.resolve();
 		},
 
-		async transformDocuments(this: typeof MoleculerFilesAdapter, params: AdapterSchema['params'], ctx: Context<AdapterParams, AdapterMeta>, docs: any[] | {}) {
+		async transformDocuments(this: typeof MoleculerFilesAdapter, params: QueryParams, ctx: Context<AdapterParams, AdapterMeta>, docs: any[] | {}) {
 			let isDoc = false;
 			if (!Array.isArray(docs)) {
 				if (isObject(docs)) {
@@ -436,12 +437,12 @@ const MoleculerFilesAdapter: ServiceSchema<AdapterSettings> & AdapterProperties 
 			return id;
 		},
 
-		async _find(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, params: AdapterSchema['params']) {
+		async _find(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, params: QueryParams) {
 			return this.adapter.find(params)
 				.then(docs => this.transformDocuments(ctx, params, docs));
 		},
 
-		async _count(this: typeof MoleculerFilesAdapter, params: AdapterSchema['params']) {
+		async _count(this: typeof MoleculerFilesAdapter, params: QueryParams) {
 			// Remove pagination params
 			if (params && params.limit)
 				params.limit = null;
@@ -450,7 +451,7 @@ const MoleculerFilesAdapter: ServiceSchema<AdapterSettings> & AdapterProperties 
 			return this.adapter.count(params);
 		},
 
-		async _list(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, params: AdapterSchema['params']) {
+		async _list(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, params: QueryParams) {
 			let countParams = Object.assign({}, params);
 			// Remove pagination params
 			if (countParams && countParams.limit)
@@ -486,7 +487,7 @@ const MoleculerFilesAdapter: ServiceSchema<AdapterSettings> & AdapterProperties 
 			return this.adapter.save(entity, meta);
 		},
 
-		async _get(this: typeof MoleculerFilesAdapter, params: AdapterSchema['params']) {
+		async _get(this: typeof MoleculerFilesAdapter, params: QueryParams) {
   		const file = await this.adapter.findById(params.id);
   		if (file)
   		  return file;
@@ -504,7 +505,7 @@ const MoleculerFilesAdapter: ServiceSchema<AdapterSettings> & AdapterProperties 
 			return this.adapter.updateById(ctx.params as WritableStream, id);
 		},
 
-		async _remove(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, params: AdapterSchema['params']) {
+		async _remove(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, params: QueryParams) {
 			const id = this.decodeID(params.id);
 			return this.adapter.removeById(id)
 				.then(doc => {
