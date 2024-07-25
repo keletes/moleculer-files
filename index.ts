@@ -579,3 +579,5 @@ const MoleculerFilesAdapter: ServiceSchema<AdapterSettings> & AdapterProperties 
 			return this.disconnect();
 	}
 };
+
+export default MoleculerFilesAdapter;
