@@ -34,10 +34,10 @@ export interface AdapterSchema {
 	connect?: Function;
 	disconnect?: Function;
 	find?: (params: QueryParams) => Promise<any[]>;
-	findById?: (id: QueryParams['id']) => Promise<ReadableStream>;
+	findById?: (id: QueryParams['id']) => Promise<WritableStream>;
 	count?: (params: QueryParams) => Promise<number>;
-	save?: (entity: WritableStream, meta: any) => Promise<any>;
-	updateById?: (entity: WritableStream, meta: any) => Promise<any>;
+	save?: (entity: ReadableStream, meta: any) => Promise<any>;
+	updateById?: (entity: ReadableStream, meta: any) => Promise<any>;
 	removeById?: (id: QueryParams['id']) => Promise<any[]>;
 	afterRetrieveTransformID?: (document: any, idField: string) => Promise<any>;
 };
