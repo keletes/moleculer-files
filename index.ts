@@ -34,10 +34,10 @@ export interface AdapterSchema {
 	connect?: Function;
 	disconnect?: Function;
 	find?: (params: QueryParams) => Promise<any[]>;
-	findById?: (id: QueryParams['id']) => Promise<WritableStream>;
+	findById?: (id: QueryParams['id']) => Promise<NodeJS.WritableStream>;
 	count?: (params: QueryParams) => Promise<number>;
-	save?: (entity: ReadableStream, meta: any) => Promise<any>;
-	updateById?: (entity: ReadableStream, meta: any) => Promise<any>;
+	save?: (entity: NodeJS.ReadableStream, meta: any) => Promise<any>;
+	updateById?: (entity: NodeJS.ReadableStream, meta: any) => Promise<any>;
 	removeById?: (id: QueryParams['id']) => Promise<any[]>;
 	afterRetrieveTransformID?: (document: any, idField: string) => Promise<any>;
 };
@@ -483,7 +483,7 @@ const MoleculerFilesAdapter: ServiceSchema<AdapterSettings> & AdapterProperties 
 		},
 
 		async _save(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, meta: {}) {
-			let entity: WritableStream = ctx.params as WritableStream;
+			let entity = ctx.params as NodeJS.ReadableStream;
 			return this.adapter.save(entity, meta);
 		},
 
@@ -502,7 +502,7 @@ const MoleculerFilesAdapter: ServiceSchema<AdapterSettings> & AdapterProperties 
 				else
 					throw new FileNotFoundError("No valid ID");
 			});
-			return this.adapter.updateById(ctx.params as WritableStream, id);
+			return this.adapter.updateById(ctx.params as NodeJS.ReadableStream, id);
 		},
 
 		async _remove(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, params: QueryParams) {
