@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import Promise from "bluebird";
+import { ServiceSchema } from "moleculer";
 export type QueryParams = {
     id?: number | string;
     limit?: number;
@@ -22,3 +23,18 @@ export interface AdapterSchema {
     removeById?: (id: QueryParams['id']) => Promise<any[]>;
     afterRetrieveTransformID?: (document: any, idField: string) => Promise<any>;
 }
+interface AdapterProperties {
+    name: string;
+    metadata: Record<any, any>;
+    adapter: AdapterSchema;
+}
+interface AdapterSettings {
+    idField: string;
+    fields?: string[];
+    pageSize: number;
+    maxPageSize: number;
+    maxLimit: number;
+    entityValidator: Object | Function;
+}
+declare const MoleculerFilesAdapter: ServiceSchema<AdapterSettings> & AdapterProperties;
+export default MoleculerFilesAdapter;

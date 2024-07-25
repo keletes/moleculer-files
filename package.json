@@ -1,6 +1,6 @@
 {
   "name": "moleculer-files",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Mixin to handle file streams directly from services.",
   "main": "index.js",
   "scripts": {

@@ -390,3 +390,4 @@ const MoleculerFilesAdapter = {
             return this.disconnect();
     }
 };
+exports.default = MoleculerFilesAdapter;
