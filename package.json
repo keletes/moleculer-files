@@ -1,11 +1,11 @@
 {
   "name": "moleculer-files",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Mixin to handle file streams directly from services.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc",
+    "build": "tsc & tsc -d",
     "export:types": "tsc -d"
   },
   "keywords": [
