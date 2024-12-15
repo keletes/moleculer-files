@@ -288,7 +288,7 @@ const MoleculerFilesAdapter = {
             return this.adapter.find(params)
                 .then(docs => this.transformDocuments(ctx, params, docs));
         },
-        async _count(params) {
+        async _count(ctx, params) {
             if (params && params.limit)
                 params.limit = null;
             if (params && params.offset)
@@ -321,7 +321,7 @@ const MoleculerFilesAdapter = {
             let entity = ctx.params;
             return this.adapter.save(entity, meta);
         },
-        async _get(params) {
+        async _get(ctx, params) {
             const file = await this.adapter.findById(params.id);
             if (file)
                 return file;

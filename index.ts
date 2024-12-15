@@ -442,7 +442,7 @@ const MoleculerFilesAdapter: ServiceSchema<AdapterSettings> & AdapterProperties 
 				.then(docs => this.transformDocuments(ctx, params, docs));
 		},
 
-		async _count(this: typeof MoleculerFilesAdapter, params: QueryParams) {
+		async _count(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, params: QueryParams) {
 			// Remove pagination params
 			if (params && params.limit)
 				params.limit = null;
@@ -487,7 +487,7 @@ const MoleculerFilesAdapter: ServiceSchema<AdapterSettings> & AdapterProperties 
 			return this.adapter.save(entity, meta);
 		},
 
-		async _get(this: typeof MoleculerFilesAdapter, params: QueryParams) {
+		async _get(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, params: QueryParams) {
   		const file = await this.adapter.findById(params.id);
   		if (file)
   		  return file;
