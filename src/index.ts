@@ -16,7 +16,7 @@ import set from 'lodash.set';
 import Promise from "bluebird";
 import { Context, Errors, ServiceSchema } from "moleculer";
 import { FileNotFoundError } from "./errors";
-import pkg from "./package.json";
+import pkg from "../package.json";
 
 export type QueryParams = {
 	id?: number | string;
@@ -339,15 +339,13 @@ const MoleculerFilesAdapter: ServiceSchema<AdapterSettings> & AdapterProperties 
 			}
 
 			return Promise.resolve(docs as any[])
-
-
 				// Encode IDs
 				.map(doc => {
 					doc[this.settings.idField] = this.encodeID(doc[this.settings.idField]);
 					return doc;
 				})
 				// Apply idField
-				.then(docs => docs.map(doc => this.adapter.afterRetrieveTransformID?.(doc, this.settings.idField)))
+				.then(docs => docs.map(doc => this.adapter.afterRetrieveTransformID ? this.adapter.afterRetrieveTransformID(doc, this.settings.idField) : doc))
 				// Populate
 				.then((json: any) => (ctx && params.populate) ? this.populateDocs(ctx, json, params.populate) : json)
 

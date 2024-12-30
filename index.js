@@ -220,7 +220,7 @@ const MoleculerFilesAdapter = {
                 doc[this.settings.idField] = this.encodeID(doc[this.settings.idField]);
                 return doc;
             })
-                .then(docs => docs.map(doc => this.adapter.afterRetrieveTransformID?.(doc, this.settings.idField)))
+                .then(docs => docs.map(doc => this.adapter.afterRetrieveTransformID ? this.adapter.afterRetrieveTransformID(doc, this.settings.idField) : doc))
                 .then((json) => (ctx && params.populate) ? this.populateDocs(ctx, json, params.populate) : json)
                 .then(json => {
                 let fields = ctx && params.fields ? params.fields : this.settings.fields;
