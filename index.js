@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -12,135 +12,169 @@ const lodash_set_1 = __importDefault(require("lodash.set"));
 const bluebird_1 = __importDefault(require("bluebird"));
 const moleculer_1 = require("moleculer");
 const errors_1 = require("./errors");
-const package_json_1 = __importDefault(require("./package.json"));
-;
-;
-;
+const package_json_1 = __importDefault(require("../package.json"));
 const { ValidationError } = moleculer_1.Errors;
 const MoleculerFilesAdapter = {
-    name: "",
+    name: '',
     metadata: {
-        $category: "files",
+        $category: 'files',
         $official: true,
         $name: package_json_1.default.name,
         $version: package_json_1.default.version,
     },
     adapter: null,
     settings: {
-        idField: "_id",
+        idField: '_id',
         fields: null,
         pageSize: 10,
         maxPageSize: 100,
         maxLimit: -1,
-        entityValidator: null
+        entityValidator: null,
     },
     actions: {
         find: {
             cache: {
-                keys: ["fields", "limit", "offset", "sort", "search", "searchFields", "query"]
+                keys: [
+                    'fields',
+                    'limit',
+                    'offset',
+                    'sort',
+                    'search',
+                    'searchFields',
+                    'query',
+                ],
             },
             params: {
                 fields: [
-                    { type: "string", optional: true },
-                    { type: "array", optional: true, items: "string" },
+                    { type: 'string', optional: true },
+                    { type: 'array', optional: true, items: 'string' },
                 ],
-                limit: { type: "number", integer: true, min: 0, optional: true, convert: true },
-                offset: { type: "number", integer: true, min: 0, optional: true, convert: true },
-                sort: { type: "string", optional: true },
-                search: { type: "string", optional: true },
+                limit: {
+                    type: 'number',
+                    integer: true,
+                    min: 0,
+                    optional: true,
+                    convert: true,
+                },
+                offset: {
+                    type: 'number',
+                    integer: true,
+                    min: 0,
+                    optional: true,
+                    convert: true,
+                },
+                sort: { type: 'string', optional: true },
+                search: { type: 'string', optional: true },
                 searchFields: [
-                    { type: "string", optional: true },
-                    { type: "array", optional: true, items: "string" },
+                    { type: 'string', optional: true },
+                    { type: 'array', optional: true, items: 'string' },
                 ],
-                query: { type: "object", optional: true }
+                query: { type: 'object', optional: true },
             },
             handler(ctx) {
                 let params = this.sanitizeParams(ctx, ctx.params);
                 return this._find(ctx, params);
-            }
+            },
         },
         count: {
             cache: {
-                keys: ["search", "searchFields", "query"]
+                keys: ['search', 'searchFields', 'query'],
             },
             params: {
-                search: { type: "string", optional: true },
+                search: { type: 'string', optional: true },
                 searchFields: [
-                    { type: "string", optional: true },
-                    { type: "array", optional: true, items: "string" },
+                    { type: 'string', optional: true },
+                    { type: 'array', optional: true, items: 'string' },
                 ],
-                query: { type: "object", optional: true }
+                query: { type: 'object', optional: true },
             },
             handler(ctx) {
                 let params = this.sanitizeParams(ctx, ctx.params);
                 return this._count(ctx, params);
-            }
+            },
         },
         list: {
             cache: {
-                keys: ["fields", "page", "pageSize", "sort", "search", "searchFields", "query"]
+                keys: [
+                    'fields',
+                    'page',
+                    'pageSize',
+                    'sort',
+                    'search',
+                    'searchFields',
+                    'query',
+                ],
             },
-            rest: "GET /",
+            rest: 'GET /',
             params: {
                 fields: [
-                    { type: "string", optional: true },
-                    { type: "array", optional: true, items: "string" },
+                    { type: 'string', optional: true },
+                    { type: 'array', optional: true, items: 'string' },
                 ],
-                page: { type: "number", integer: true, min: 1, optional: true, convert: true },
-                pageSize: { type: "number", integer: true, min: 0, optional: true, convert: true },
-                sort: { type: "string", optional: true },
-                search: { type: "string", optional: true },
+                page: {
+                    type: 'number',
+                    integer: true,
+                    min: 1,
+                    optional: true,
+                    convert: true,
+                },
+                pageSize: {
+                    type: 'number',
+                    integer: true,
+                    min: 0,
+                    optional: true,
+                    convert: true,
+                },
+                sort: { type: 'string', optional: true },
+                search: { type: 'string', optional: true },
                 searchFields: [
-                    { type: "string", optional: true },
-                    { type: "array", optional: true, items: "string" },
+                    { type: 'string', optional: true },
+                    { type: 'array', optional: true, items: 'string' },
                 ],
-                query: { type: "object", optional: true }
+                query: { type: 'object', optional: true },
             },
             handler(ctx) {
                 let params = this.sanitizeParams(ctx, ctx.params);
                 return this._list(ctx, params);
-            }
+            },
         },
         save: {
-            rest: "POST /",
+            rest: 'POST /',
             handler(ctx) {
                 let meta = ctx.meta;
                 return this._save(ctx, meta);
-            }
+            },
         },
         get: {
             cache: {
-                keys: ["id", "fields", "mapping"]
+                keys: ['id', 'fields', 'mapping'],
             },
-            rest: "GET /:id",
+            rest: 'GET /:id',
             params: {
-                id: [
-                    { type: "string" },
-                    { type: "number" }
-                ]
+                id: [{ type: 'string' }, { type: 'number' }],
             },
             async handler(ctx) {
                 const stream = await this._get(ctx, ctx.params);
                 return stream;
-            }
+            },
         },
         update: {
-            rest: "PUT /:id",
+            rest: 'PUT /:id',
             handler(ctx) {
                 let meta = ctx.meta;
                 return this._update(ctx, meta);
-            }
+            },
         },
         remove: {
-            rest: "DELETE /:id",
+            rest: 'DELETE /:id',
             params: {
-                id: { type: "any" }
+                id: { type: 'any' },
             },
             handler(ctx) {
                 let params = this.sanitizeParams(ctx, ctx.params);
                 return this._remove(ctx, params);
-            }
-        }
+            },
+        },
     },
     methods: {
         connect(ctx) {
@@ -150,7 +184,7 @@ const MoleculerFilesAdapter = {
                         return this.schema.afterConnected.call(this);
                     }
                     catch (err) {
-                        this.logger.error("afterConnected error!", err);
+                        this.logger.error('afterConnected error!', err);
                     }
                 }
             });
@@ -161,28 +195,29 @@ const MoleculerFilesAdapter = {
         },
         sanitizeParams(ctx, params) {
             let p = Object.assign({}, params);
-            if (typeof (p.limit) === "string")
+            if (typeof p.limit === 'string')
                 p.limit = Number(p.limit);
-            if (typeof (p.offset) === "string")
+            if (typeof p.offset === 'string')
                 p.offset = Number(p.offset);
-            if (typeof (p.page) === "string")
+            if (typeof p.page === 'string')
                 p.page = Number(p.page);
-            if (typeof (p.pageSize) === "string")
+            if (typeof p.pageSize === 'string')
                 p.pageSize = Number(p.pageSize);
-            if (typeof (p.sort) === "string")
-                p.sort = p.sort.replace(/,/g, " ").split(" ");
-            if (typeof (p.fields) === "string")
-                p.fields = p.fields.replace(/,/g, " ").split(" ");
-            if (typeof (p.populate) === "string")
-                p.populate = p.populate.replace(/,/g, " ").split(" ");
-            if (typeof (p.searchFields) === "string")
-                p.searchFields = p.searchFields.replace(/,/g, " ").split(" ");
-            if (ctx.action.name.endsWith(".list")) {
+            if (typeof p.sort === 'string')
+                p.sort = p.sort.replace(/,/g, ' ').split(' ');
+            if (typeof p.fields === 'string')
+                p.fields = p.fields.replace(/,/g, ' ').split(' ');
+            if (typeof p.populate === 'string')
+                p.populate = p.populate.replace(/,/g, ' ').split(' ');
+            if (typeof p.searchFields === 'string')
+                p.searchFields = p.searchFields.replace(/,/g, ' ').split(' ');
+            if (ctx.action.name.endsWith('.list')) {
                 if (!p.pageSize)
                     p.pageSize = this.settings.pageSize;
                 if (!p.page)
                     p.page = 1;
-                if (this.settings.maxPageSize > 0 && p.pageSize > this.settings.maxPageSize)
+                if (this.settings.maxPageSize > 0 &&
+                    p.pageSize > this.settings.maxPageSize)
                     p.pageSize = this.settings.maxPageSize;
                 p.limit = p.pageSize;
                 p.offset = (p.page - 1) * p.pageSize;
@@ -215,26 +250,32 @@ const MoleculerFilesAdapter = {
                 else
                     return bluebird_1.default.resolve(docs);
             }
-            return bluebird_1.default.resolve(docs)
-                .map(doc => {
+            return (bluebird_1.default.resolve(docs)
+                .map((doc) => {
                 doc[this.settings.idField] = this.encodeID(doc[this.settings.idField]);
                 return doc;
             })
-                .then(docs => docs.map(doc => this.adapter.afterRetrieveTransformID ? this.adapter.afterRetrieveTransformID(doc, this.settings.idField) : doc))
-                .then((json) => (ctx && params.populate) ? this.populateDocs(ctx, json, params.populate) : json)
-                .then(json => {
-                let fields = ctx && params.fields ? params.fields : this.settings.fields;
+                .then((docs) => docs.map((doc) => this.adapter.afterRetrieveTransformID
+                ? this.adapter.afterRetrieveTransformID(doc, this.settings.idField)
+                : doc))
+                .then((json) => ctx && params.populate
+                ? this.populateDocs(ctx, json, params.populate)
+                : json)
+                .then((json) => {
+                let fields = ctx && params.fields
+                    ? params.fields
+                    : this.settings.fields;
                 if ((0, lodash_isstring_1.default)(fields))
-                    fields = fields.split(" ");
+                    fields = fields.split(' ');
                 const authFields = this.authorizeFields(fields);
                 return json.map((item) => this.filterFields(item, authFields));
             })
-                .then(json => isDoc ? json[0] : json);
+                .then((json) => (isDoc ? json[0] : json)));
         },
         filterFields(doc, fields) {
             if (Array.isArray(fields)) {
                 let res = {};
-                fields.forEach(n => {
+                fields.forEach((n) => {
                     const v = (0, lodash_get_1.default)(doc, n);
                     if (v !== undefined)
                         (0, lodash_set_1.default)(res, n, v);
@@ -247,22 +288,22 @@ const MoleculerFilesAdapter = {
             if (this.settings.fields && this.settings.fields.length > 0) {
                 let res = [];
                 if (Array.isArray(fields) && fields.length > 0) {
-                    fields.forEach(f => {
+                    fields.forEach((f) => {
                         if (this.settings.fields.indexOf(f) !== -1) {
                             res.push(f);
                             return;
                         }
-                        if (f.indexOf(".") !== -1) {
-                            let parts = f.split(".");
+                        if (f.indexOf('.') !== -1) {
+                            let parts = f.split('.');
                             while (parts.length > 1) {
                                 parts.pop();
-                                if (this.settings.fields.indexOf(parts.join(".")) !== -1) {
+                                if (this.settings.fields.indexOf(parts.join('.')) !== -1) {
                                     res.push(f);
                                     break;
                                 }
                             }
                         }
-                        let nestedFields = this.settings.fields.filter(prop => prop.indexOf(f + ".") !== -1);
+                        let nestedFields = this.settings.fields.filter((prop) => prop.indexOf(f + '.') !== -1);
                         if (nestedFields.length > 0) {
                             res = res.concat(nestedFields);
                         }
@@ -276,7 +317,7 @@ const MoleculerFilesAdapter = {
             if (!(0, lodash_isfunction_1.default)(this.settings.entityValidator))
                 return bluebird_1.default.resolve(entity);
             let entities = Array.isArray(entity) ? entity : [entity];
-            return bluebird_1.default.all(entities.map(entity => this.settings.entityValidator.call(this, entity))).then(() => entity);
+            return bluebird_1.default.all(entities.map((entity) => this.settings.entityValidator.call(this, entity))).then(() => entity);
         },
         encodeID(id) {
             return id;
@@ -285,8 +326,9 @@ const MoleculerFilesAdapter = {
             return id;
         },
         async _find(ctx, params) {
-            return this.adapter.find(params)
-                .then(docs => this.transformDocuments(ctx, params, docs));
+            return this.adapter
+                .find(params)
+                .then((docs) => this.transformDocuments(ctx, params, docs));
         },
         async _count(ctx, params) {
             if (params && params.limit)
@@ -303,16 +345,16 @@ const MoleculerFilesAdapter = {
                 countParams.offset = null;
             return bluebird_1.default.all([
                 this.adapter.find(params),
-                this.adapter.count(countParams)
-            ]).then(res => {
-                return this.transformDocuments(ctx, params, res[0])
-                    .then((docs) => {
+                this.adapter.count(countParams),
+            ]).then((res) => {
+                return this.transformDocuments(ctx, params, res[0]).then((docs) => {
                     return {
                         rows: docs,
                         total: res[1],
                         page: params.page,
                         pageSize: params.pageSize,
-                        totalPages: Math.floor((res[1] + params.pageSize - 1) / params.pageSize)
+                        totalPages: Math.floor((res[1] + params.pageSize - 1) /
+                            params.pageSize),
                     };
                 });
             });
@@ -322,60 +364,59 @@ const MoleculerFilesAdapter = {
             return this.adapter.save(entity, meta);
         },
         async _get(ctx, params) {
-            const file = await this.adapter.findById(params.id);
-            if (file)
-                return file;
-            throw new errors_1.FileNotFoundError(String(params.id));
+            return this.adapter.findById(params.id);
         },
         async _update(ctx, meta) {
             let id;
-            Object.keys(meta).forEach(prop => {
-                if (prop == "id" || prop == this.settings.idField)
+            Object.keys(meta).forEach((prop) => {
+                if (prop == 'id' || prop == this.settings.idField)
                     id = this.decodeID(meta[prop]);
                 else
-                    throw new errors_1.FileNotFoundError("No valid ID");
+                    throw new errors_1.FileNotFoundError('No valid ID');
             });
             return this.adapter.updateById(ctx.params, id);
         },
         async _remove(ctx, params) {
             const id = this.decodeID(params.id);
-            return this.adapter.removeById(id)
-                .then(doc => {
+            return this.adapter.removeById(id).then((doc) => {
                 if (!doc)
                     return bluebird_1.default.reject(new errors_1.FileNotFoundError(String(params.id)));
-                return this.transformDocuments(ctx, params, doc)
-                    .then((json) => this.entityChanged("removed", json, ctx).then(() => json));
+                return this.transformDocuments(ctx, params, doc).then((json) => this.entityChanged('removed', json, ctx).then(() => json));
             });
-        }
+        },
     },
     created() {
         if ((0, lodash_isstring_1.default)(this.settings.fields)) {
-            this.settings.fields = this.settings.fields.split(" ");
+            this.settings.fields = this.settings.fields.split(' ');
         }
         if (!this.schema.adapter)
             this.adapter = null;
         else
             this.adapter = this.schema.adapter;
         this.adapter.init(this.broker, this);
-        if (this.broker.validator && (0, lodash_isobject_1.default)(this.settings.entityValidator) && !(0, lodash_isfunction_1.default)(this.settings.entityValidator)) {
+        if (this.broker.validator &&
+            (0, lodash_isobject_1.default)(this.settings.entityValidator) &&
+            !(0, lodash_isfunction_1.default)(this.settings.entityValidator)) {
             const check = this.broker.validator.compile(this.settings.entityValidator);
             this.settings.entityValidator = (entity) => {
                 const res = check(entity);
                 if (res === true)
                     return bluebird_1.default.resolve();
                 else
-                    return bluebird_1.default.reject(new ValidationError("Entity validation error!", null, res));
+                    return bluebird_1.default.reject(new ValidationError('Entity validation error!', null, res));
             };
         }
     },
     started() {
         if (this.adapter) {
-            return new bluebird_1.default(resolve => {
+            return new bluebird_1.default((resolve) => {
                 let connecting = () => {
-                    this.connect().then(resolve).catch((err) => {
-                        this.logger.error("Connection error!", err);
+                    this.connect()
+                        .then(resolve)
+                        .catch((err) => {
+                        this.logger.error('Connection error!', err);
                         setTimeout(() => {
-                            this.logger.warn("Reconnecting...");
+                            this.logger.warn('Reconnecting...');
                             connecting();
                         }, 1000);
                     });
@@ -383,11 +424,11 @@ const MoleculerFilesAdapter = {
                 connecting();
             });
         }
-        return bluebird_1.default.reject(new Error("Please set the store adapter in schema!"));
+        return bluebird_1.default.reject(new Error('Please set the store adapter in schema!'));
     },
     stopped() {
         if (this.adapter)
             return this.disconnect();
-    }
+    },
 };
 exports.default = MoleculerFilesAdapter;
