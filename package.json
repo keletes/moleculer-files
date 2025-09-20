@@ -1,40 +1,39 @@
 {
-  "name": "moleculer-files",
-  "version": "0.1.10",
-  "description": "Mixin to handle file streams directly from services.",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc & tsc -d",
-    "export:types": "tsc -d"
-  },
-  "keywords": [
-    "moleculer",
-    "stream",
-    "file"
-  ],
-  "author": "Daniele Draganti",
-  "license": "MIT",
-  "devDependencies": {
-    "@types/bluebird": "^3.5.42",
-    "@types/lodash.capitalize": "^4.2.9",
-    "@types/lodash.isfunction": "^3.0.9",
-    "@types/lodash.get": "^4.4.9",
-    "@types/lodash.isobject": "^3.0.9",
-    "@types/lodash.isstring": "^4.0.9",
-    "@types/lodash.set": "^4.3.9",
-    "@types/node": "^20.14.12",
-    "moleculer": "^0.13.10"
-  },
-  "dependencies": {
-
-    "bluebird": "^3.5.5",
-    "lodash.capitalize": "^4.2.1",
-    "lodash.get": "^4.4.2",
-    "lodash.isfunction": "^3.0.9",
-    "lodash.isobject": "^3.0.2",
-    "lodash.isstring": "^4.0.1",
-    "lodash.set": "^4.3.2"
-  },
-  "repository": null
+	"name": "moleculer-files",
+	"version": "0.1.12",
+	"description": "Mixin to handle file streams directly from services.",
+	"main": "index.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"build": "tsc & tsc -d",
+		"export:types": "tsc -d"
+	},
+	"keywords": [
+		"moleculer",
+		"stream",
+		"file"
+	],
+	"author": "Daniele Draganti",
+	"license": "MIT",
+	"devDependencies": {
+		"@types/bluebird": "^3.5.42",
+		"@types/lodash.capitalize": "^4.2.9",
+		"@types/lodash.isfunction": "^3.0.9",
+		"@types/lodash.get": "^4.4.9",
+		"@types/lodash.isobject": "^3.0.9",
+		"@types/lodash.isstring": "^4.0.9",
+		"@types/lodash.set": "^4.3.9",
+		"@types/node": "^20.14.12",
+		"moleculer": "^0.13.10"
+	},
+	"dependencies": {
+		"bluebird": "^3.5.5",
+		"lodash.capitalize": "^4.2.1",
+		"lodash.get": "^4.4.2",
+		"lodash.isfunction": "^3.0.9",
+		"lodash.isobject": "^3.0.2",
+		"lodash.isstring": "^4.0.1",
+		"lodash.set": "^4.3.2"
+	},
+	"repository": null
 }

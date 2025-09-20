@@ -1,6 +1,6 @@
 /// <reference types="node" />
-import Promise from "bluebird";
-import { ServiceSchema } from "moleculer";
+import Promise from 'bluebird';
+import { ServiceSchema } from 'moleculer';
 export type QueryParams = {
     id?: number | string;
     limit?: number;
