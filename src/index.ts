@@ -486,10 +486,17 @@ const MoleculerFilesAdapter: ServiceSchema<AdapterSettings> & AdapterProperties 
 		},
 
 		async _get(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, params: QueryParams) {
-  		const file = await this.adapter.findById(params.id);
-  		if (file)
-  		  return file;
-  		throw new FileNotFoundError(String(params.id));
+			try {
+				const file = await this.adapter.findById(params.id);
+				if (file)
+					return file;
+				throw new FileNotFoundError(String(params.id));
+			}
+			catch (err) {
+				if (err.code == 404)
+				throw new FileNotFoundError(String(params.id));
+				throw err;
+			}
 		},
 
 		async _update(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, meta: Record<string, any>) {
