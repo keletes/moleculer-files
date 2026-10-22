@@ -1,39 +1,10 @@
-/*
- * moleculer-db
- * Copyright (c) 2019 MoleculerJS (https://github.com/moleculerjs/moleculer-db)
- * MIT Licensed
- */
-
-"use strict";
-
 import { Errors } from "moleculer";
-const { MoleculerClientError } = Errors;
-
-//const ERR_FILENOT_FOUND = "ERR_FILE_NOT_FOUND";
 
 /**
- * File not found
- *
- * @class FileNotFoundError
- * @extends {MoleculerClientError}
+ * File not found (HTTP 404).
  */
-class FileNotFoundError extends MoleculerClientError {
-
-	/**
-	 * Creates an instance of FileNotFoundError.
-	 *
-	 * @param {any} ID of entity
-	 *
-	 * @memberOf FileNotFoundError
-	 */
+export class FileNotFoundError extends Errors.MoleculerClientError {
 	constructor(id: string) {
-		super("File not found", 404, null, {
-			id
-		});
+		super("File not found", 404, "ERR_FILE_NOT_FOUND", { id });
 	}
 }
-
-
-export {
-	FileNotFoundError
-};
