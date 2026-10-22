@@ -1,78 +1,118 @@
 /*
  * moleculer-files
  * Copyright (c) 2019 Daniele Draganti
- Largely inspired by MoleculerJS' Moleculer-DB (https://github.com/moleculerjs/moleculer-db)
+ * Largely inspired by MoleculerJS' Moleculer-DB (https://github.com/moleculerjs/moleculer-db)
  * MIT Licensed
  */
 
-"use strict";
-
-import capitalize from 'lodash.capitalize';
-import isFunction from 'lodash.isfunction';
-import isObject from 'lodash.isobject';
-import isString from 'lodash.isstring';
-import get from 'lodash.get';
-import set from 'lodash.set';
-import Promise from "bluebird";
-import { Context, Errors, ServiceSchema } from "moleculer";
+import get from "lodash.get";
+import set from "lodash.set";
+import { Errors } from "moleculer";
+import type { Context, Service, ServiceBroker, ServiceSchema } from "moleculer";
 import { FileNotFoundError } from "./errors";
-import pkg from "../package.json";
 
-export type QueryParams = {
-	id?: number | string;
-	limit?: number,
-	offset?: number,
-	page?: number,
-	pageSize?: number,
-	sort?: string | string[],
-	fields?: string | string[],
-	populate?: string | string[],
-	searchFields?: string | string[],
-}
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const pkg: { name: string; version: string } = require("../package.json");
 
-export interface AdapterSchema {
-	connect?: Function;
-	disconnect?: Function;
-	find?: (params: QueryParams) => Promise<any[]>;
-	findById?: (id: QueryParams['id']) => Promise<NodeJS.WritableStream>;
-	count?: (params: QueryParams) => Promise<number>;
-	save?: (entity: NodeJS.ReadableStream, meta: any) => Promise<any>;
-	updateById?: (entity: NodeJS.ReadableStream, meta: any) => Promise<any>;
-	removeById?: (id: QueryParams['id']) => Promise<any[]>;
-	afterRetrieveTransformID?: (document: any, idField: string) => Promise<any>;
-};
-
-interface AdapterParams {};
-interface AdapterMeta {};
+export { FileNotFoundError };
 
 const { ValidationError } = Errors;
 
-interface AdapterProperties {
-	name: string;
-	metadata: Record<any, any>;
-	adapter: AdapterSchema;
-}
+export type FileId = number | string;
 
-interface AdapterSettings {
-	idField: string;
-	fields?: string[];
-	pageSize: number;
-	maxPageSize: number;
-	maxLimit: number;
-	entityValidator: Object | Function;
-}
+export type QueryParams = {
+	id?: FileId;
+	limit?: number | null;
+	offset?: number | null;
+	page?: number;
+	pageSize?: number;
+	sort?: string | string[];
+	fields?: string | string[];
+	populate?: string | string[];
+	search?: string;
+	searchFields?: string | string[];
+	query?: Record<string, unknown>;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	[filter: string]: any;
+};
 
 /**
- * Service mixin to access file streams
- *
- * @name moleculer-files
- * @module Service
+ * Contract of a storage driver (GridFS, S3, filesystem...). Assign an instance to the `adapter` property of the
+ * service schema.
  */
-const MoleculerFilesAdapter: ServiceSchema<AdapterSettings> & AdapterProperties = {
-	// Must overwrite it
+export interface AdapterSchema {
+	init(broker: ServiceBroker, service: Service): void;
+	connect(): Promise<unknown>;
+	disconnect?(): Promise<unknown> | void;
+	/** Entries matching the (sanitized) params, as plain documents. */
+	find?(params: QueryParams): Promise<unknown[]>;
+	/** Readable stream of the file, or a falsy value when there is no such file. */
+	findById?(id: FileId): Promise<NodeJS.ReadableStream | null | undefined>;
+	count?(params: QueryParams): Promise<number | void>;
+	/** Stores the stream; `meta` is the Moleculer `ctx.meta`. */
+	save?(entity: NodeJS.ReadableStream, meta: Record<string, unknown>): Promise<unknown>;
+	/** Stores a new revision of the file `id`. */
+	updateById?(entity: NodeJS.ReadableStream, id: FileId): Promise<unknown>;
+	/** Resolves to the removed entry, or a falsy value when there is no such file. */
+	removeById?(id: FileId): Promise<unknown>;
+	afterRetrieveTransformID?(document: unknown, idField: string): unknown;
+}
+
+export interface FilesSettings {
+	/** Name of the ID field. */
+	idField: string;
+	/** Field filtering list; `null` does not filter. */
+	fields: string[] | null;
+	/** Default page size of `list`. */
+	pageSize: number;
+	/** Maximum page size of `list`. */
+	maxPageSize: number;
+	/** Maximum value of `limit` (-1: no limit). */
+	maxLimit: number;
+	/** Validator schema or function. */
+	// eslint-disable-next-line @typescript-eslint/ban-types
+	entityValidator: Record<string, unknown> | Function | null;
+	[name: string]: unknown;
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+interface FilesMethods {
+	connect(): Promise<void>;
+	disconnect(): Promise<unknown> | void;
+	sanitizeParams(ctx: Context<any, any>, params: QueryParams): QueryParams;
+	entityChanged(type: string, json: unknown, ctx: Context<any, any>): Promise<unknown>;
+	clearCache(): Promise<unknown>;
+	transformDocuments(params: QueryParams, ctx: Context<any, any> | undefined, docs: unknown): Promise<any>;
+	filterFields(doc: any, fields: string[] | string | null | undefined): any;
+	authorizeFields(fields: string[] | string | null | undefined): any;
+	validateEntity(entity: unknown): Promise<unknown>;
+	encodeID(id: any): any;
+	decodeID(id: any): any;
+	populateDocs?(ctx: Context<any, any>, docs: any, populate: string | string[]): Promise<any>;
+	_find(ctx: Context<any, any>, params: QueryParams): Promise<any>;
+	_count(ctx: Context<any, any>, params: QueryParams): Promise<any>;
+	_list(ctx: Context<any, any>, params: QueryParams): Promise<any>;
+	_save(ctx: Context<any, any>, meta: Record<string, unknown>): Promise<any>;
+	_get(ctx: Context<any, any>, params: QueryParams): Promise<NodeJS.ReadableStream>;
+	_update(ctx: Context<any, any>, meta: Record<string, unknown>): Promise<any>;
+	_remove(ctx: Context<any, any>, params: QueryParams): Promise<any>;
+}
+
+/** `this` of the handlers and methods of the mixin. */
+export type FilesService = Service<FilesSettings> & FilesMethods & { adapter: AdapterSchema };
+
+const splitList = (value: string): string[] => value.replace(/,/g, " ").split(" ");
+
+const capitalize = (value: string): string => value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+
+/**
+ * Service mixin to access file streams. Add it to `mixins` and set `adapter` (and, for the drivers that need
+ * it, `collection`) in the service schema.
+ */
+const MoleculerFilesAdapter: ServiceSchema & ThisType<FilesService> = {
+	// Must be overwritten by the service
 	name: "",
 
-	// Service's metadata
 	metadata: {
 		$category: "files",
 		$official: true,
@@ -80,40 +120,22 @@ const MoleculerFilesAdapter: ServiceSchema<AdapterSettings> & AdapterProperties 
 		$version: pkg.version,
 	},
 
-	// Store adapter
+	// Storage driver
 	adapter: null,
 
-	/**
-	 * Default settings
-	 */
 	settings: {
-		/** @type {String} Name of ID field. */
 		idField: "_id",
-
-		/** @type {Array<String>?} Field filtering list. It must be an `Array`. If the value is `null` or `undefined` doesn't filter the fields of entities. */
 		fields: null,
-
-		/** @type {Number} Default page size in `list` action. */
 		pageSize: 10,
-
-		/** @type {Number} Maximum page size in `list` action. */
 		maxPageSize: 100,
-
-		/** @type {Number} Maximum value of limit in `find` action. Default: `-1` (no limit) */
 		maxLimit: -1,
+		entityValidator: null,
+	} as FilesSettings,
 
-		/** @type {Object|Function} Validator schema or a function to validate the incoming entity in `create` & 'insert' actions. */
-		entityValidator: null
-	},
-
-	/**
-	 * Actions
-	 */
 	actions: {
-
 		find: {
 			cache: {
-				keys: ["fields", "limit", "offset", "sort", "search", "searchFields", "query"]
+				keys: ["fields", "limit", "offset", "sort", "search", "searchFields", "query"],
 			},
 			params: {
 				fields: [
@@ -128,17 +150,17 @@ const MoleculerFilesAdapter: ServiceSchema<AdapterSettings> & AdapterProperties 
 					{ type: "string", optional: true },
 					{ type: "array", optional: true, items: "string" },
 				],
-				query: { type: "object", optional: true }
+				query: { type: "object", optional: true },
 			},
-			handler(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>): ReadableStream {
-				let params = this.sanitizeParams(ctx, ctx.params);
+			handler(ctx: Context<QueryParams>) {
+				const params = this.sanitizeParams(ctx, ctx.params);
 				return this._find(ctx, params);
-			}
+			},
 		},
 
 		count: {
 			cache: {
-				keys: ["search", "searchFields", "query"]
+				keys: ["search", "searchFields", "query"],
 			},
 			params: {
 				search: { type: "string", optional: true },
@@ -146,17 +168,17 @@ const MoleculerFilesAdapter: ServiceSchema<AdapterSettings> & AdapterProperties 
 					{ type: "string", optional: true },
 					{ type: "array", optional: true, items: "string" },
 				],
-				query: { type: "object", optional: true }
+				query: { type: "object", optional: true },
 			},
-			handler(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>): number {
-				let params = this.sanitizeParams(ctx, ctx.params);
+			handler(ctx: Context<QueryParams>) {
+				const params = this.sanitizeParams(ctx, ctx.params);
 				return this._count(ctx, params);
-			}
+			},
 		},
 
 		list: {
 			cache: {
-				keys: ["fields", "page", "pageSize", "sort", "search", "searchFields", "query"]
+				keys: ["fields", "page", "pageSize", "sort", "search", "searchFields", "query"],
 			},
 			rest: "GET /",
 			params: {
@@ -172,259 +194,194 @@ const MoleculerFilesAdapter: ServiceSchema<AdapterSettings> & AdapterProperties 
 					{ type: "string", optional: true },
 					{ type: "array", optional: true, items: "string" },
 				],
-				query: { type: "object", optional: true }
+				query: { type: "object", optional: true },
 			},
-			handler(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>) {
-				let params = this.sanitizeParams(ctx, ctx.params);
+			handler(ctx: Context<QueryParams>) {
+				const params = this.sanitizeParams(ctx, ctx.params);
 				return this._list(ctx, params);
-			}
+			},
 		},
 
 		save: {
 			rest: "POST /",
-			handler(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>) {
-				let meta = ctx.meta;
-				return this._save(ctx, meta);
-			}
+			handler(ctx: Context<NodeJS.ReadableStream, Record<string, unknown>>) {
+				return this._save(ctx, ctx.meta);
+			},
 		},
 
 		get: {
 			cache: {
-				keys: ["id", "fields", "mapping"]
+				keys: ["id", "fields", "mapping"],
 			},
 			rest: "GET /:id",
 			params: {
-				id: [
-					{ type: "string" },
-					{ type: "number" }
-				]
+				id: [{ type: "string" }, { type: "number" }],
 			},
-			async handler(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>) {
-				const stream = await this._get(ctx, ctx.params);
-				return stream;
-			}
+			handler(ctx: Context<QueryParams>) {
+				return this._get(ctx, ctx.params);
+			},
 		},
 
 		update: {
 			rest: "PUT /:id",
-			handler(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>) {
-				let meta = ctx.meta;
-				return this._update(ctx, meta);
-			}
+			handler(ctx: Context<NodeJS.ReadableStream, Record<string, unknown>>) {
+				return this._update(ctx, ctx.meta);
+			},
 		},
 
 		remove: {
 			rest: "DELETE /:id",
 			params: {
-				id: { type: "any" }
+				id: { type: "any" },
 			},
-			handler(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>) {
-				let params = this.sanitizeParams(ctx, ctx.params);
+			handler(ctx: Context<QueryParams>) {
+				const params = this.sanitizeParams(ctx, ctx.params);
 				return this._remove(ctx, params);
-			}
-		}
+			},
+		},
 	},
 
-	/**
-	 * Methods
-	 */
 	methods: {
-
-		/**
-		 * Connect to database.
-		 */
-		connect(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>) {
-			return this.adapter.connect().then(() => {
-				// Call an 'afterConnected' handler in schema
-				if (isFunction(this.schema.afterConnected)) {
-					try {
-						return this.schema.afterConnected.call(this);
-					} catch(err) {
-						/* istanbul ignore next */
-						this.logger.error("afterConnected error!", err);
-					}
+		/** Connect to the storage; runs `afterConnected` of the schema, if any. */
+		async connect() {
+			await this.adapter.connect();
+			if (typeof this.schema.afterConnected === "function") {
+				try {
+					return await this.schema.afterConnected.call(this);
+				} catch (err) {
+					/* istanbul ignore next */
+					this.logger.error("afterConnected error!", err);
 				}
-			});
+			}
 		},
 
-		/**
-		 * Disconnect from database.
-		 */
-		disconnect(this: typeof MoleculerFilesAdapter) {
-			if (isFunction(this.adapter.disconnect))
-				return this.adapter.disconnect();
+		disconnect() {
+			if (typeof this.adapter.disconnect === "function") return this.adapter.disconnect();
 		},
 
-		/**
-		 * Sanitize context parameters at `find` action.
-		 *
-		 * @param {Context<AdapterParams, AdapterMeta>} ctx
-		 * @param {any} params
-		 * @returns {Promise}
-		 */
-		sanitizeParams(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, params: QueryParams) {
-			let p = Object.assign({}, params);
+		/** Sanitize the context parameters of `find`, `count`, `list` and `remove`. */
+		sanitizeParams(ctx, params) {
+			const p: QueryParams = Object.assign({}, params);
 
 			// Convert from string to number
-			if (typeof(p.limit) === "string")
-				p.limit = Number(p.limit);
-			if (typeof(p.offset) === "string")
-				p.offset = Number(p.offset);
-			if (typeof(p.page) === "string")
-				p.page = Number(p.page);
-			if (typeof(p.pageSize) === "string")
-				p.pageSize = Number(p.pageSize);
+			if (typeof p.limit === "string") p.limit = Number(p.limit);
+			if (typeof p.offset === "string") p.offset = Number(p.offset);
+			if (typeof p.page === "string") p.page = Number(p.page);
+			if (typeof p.pageSize === "string") p.pageSize = Number(p.pageSize);
 
-			if (typeof(p.sort) === "string")
-				p.sort = p.sort.replace(/,/g, " ").split(" ");
+			if (typeof p.sort === "string") p.sort = splitList(p.sort);
+			if (typeof p.fields === "string") p.fields = splitList(p.fields);
+			if (typeof p.populate === "string") p.populate = splitList(p.populate);
+			if (typeof p.searchFields === "string") p.searchFields = splitList(p.searchFields);
 
-			if (typeof(p.fields) === "string")
-				p.fields = p.fields.replace(/,/g, " ").split(" ");
-
-			if (typeof(p.populate) === "string")
-				p.populate = p.populate.replace(/,/g, " ").split(" ");
-
-			if (typeof(p.searchFields) === "string")
-				p.searchFields = p.searchFields.replace(/,/g, " ").split(" ");
-
-			if (ctx.action.name.endsWith(".list")) {
-				// Default `pageSize`
-				if (!p.pageSize)
-					p.pageSize = this.settings.pageSize;
-
-				// Default `page`
-				if (!p.page)
-					p.page = 1;
-
-				// Limit the `pageSize`
-				if (this.settings.maxPageSize > 0 && p.pageSize > this.settings.maxPageSize)
-					p.pageSize = this.settings.maxPageSize;
-
-				// Calculate the limit & offset from page & pageSize
-				p.limit = p.pageSize;
-				p.offset = (p.page - 1) * p.pageSize;
+			if (ctx.action?.name.endsWith(".list")) {
+				let pageSize = p.pageSize || this.settings.pageSize;
+				const page = p.page || 1;
+				if (this.settings.maxPageSize > 0 && pageSize > this.settings.maxPageSize)
+					pageSize = this.settings.maxPageSize;
+				p.pageSize = pageSize;
+				p.page = page;
+				p.limit = pageSize;
+				p.offset = (page - 1) * pageSize;
 			}
-			// Limit the `limit`
-			if (this.settings.maxLimit > 0 && p.limit > this.settings.maxLimit)
+
+			if (this.settings.maxLimit > 0 && p.limit != null && p.limit > this.settings.maxLimit)
 				p.limit = this.settings.maxLimit;
 
 			return p;
 		},
 
-		entityChanged(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, type: string, json: any) {
-			return this.clearCache().then(() => {
-				const eventName = `entity${capitalize(type)}`;
-				if (this.schema[eventName] != null) {
-					return this.schema[eventName].call(this, json, ctx);
-				}
-			});
+		/** Clears the cache and calls the `entity<Type>` handler of the schema, if any. */
+		async entityChanged(type, json, ctx) {
+			await this.clearCache();
+			const eventName = `entity${capitalize(type)}`;
+			if (this.schema[eventName] != null) return this.schema[eventName].call(this, json, ctx);
 		},
 
-		clearCache(this: typeof MoleculerFilesAdapter) {
+		async clearCache() {
 			this.broker.broadcast(`cache.clean.${this.fullName}`);
-			if (this.broker.cacher)
-				return this.broker.cacher.clean(`${this.fullName}.*`);
-			return Promise.resolve();
+			if (this.broker.cacher) return this.broker.cacher.clean(`${this.fullName}.*`);
 		},
 
-		async transformDocuments(this: typeof MoleculerFilesAdapter, params: QueryParams, ctx: Context<AdapterParams, AdapterMeta>, docs: any[] | {}) {
+		async transformDocuments(params, ctx, docs) {
 			let isDoc = false;
-			if (!Array.isArray(docs)) {
-				if (isObject(docs)) {
-					isDoc = true;
-					docs = [docs];
-				}
-				else
-					return Promise.resolve(docs);
+			let list: any[];
+			if (Array.isArray(docs)) {
+				list = docs;
+			} else if (docs !== null && typeof docs === "object") {
+				isDoc = true;
+				list = [docs];
+			} else {
+				return docs;
 			}
 
-			return Promise.resolve(docs as any[])
-				// Encode IDs
-				.map(doc => {
-					doc[this.settings.idField] = this.encodeID(doc[this.settings.idField]);
-					return doc;
-				})
-				// Apply idField
-				.then(docs => docs.map(doc => this.adapter.afterRetrieveTransformID ? this.adapter.afterRetrieveTransformID(doc, this.settings.idField) : doc))
-				// Populate
-				.then((json: any) => (ctx && params.populate) ? this.populateDocs(ctx, json, params.populate) : json)
+			// Encode IDs and let the adapter apply its own ID field
+			list = list.map((doc) => {
+				doc[this.settings.idField] = this.encodeID(doc[this.settings.idField]);
+				return this.adapter.afterRetrieveTransformID
+					? this.adapter.afterRetrieveTransformID(doc, this.settings.idField)
+					: doc;
+			});
 
-			// TODO onTransformHook
+			if (ctx && params.populate && this.populateDocs) list = await this.populateDocs(ctx, list, params.populate);
 
-				// Filter fields
-				.then(json => {
-					let fields = ctx && params.fields ? params.fields : this.settings.fields;
+			// Filter fields, only on the authorized ones
+			const fields = ctx && params.fields ? params.fields : this.settings.fields;
+			const authFields = this.authorizeFields(fields);
+			list = list.map((item) => this.filterFields(item, authFields));
 
-					// Compatibility with < 0.4
-					/* istanbul ignore next */
-					if (isString(fields))
-						fields = fields.split(" ");
-
-					// Authorize the requested fields
-					const authFields = this.authorizeFields(fields);
-
-					return json.map((item: any) => this.filterFields(item, authFields));
-				})
-
-				// Return
-				.then(json => isDoc ? json[0] : json);
+			return isDoc ? list[0] : list;
 		},
 
-		filterFields(doc: any, fields: string) {
-			// Apply field filter (support nested paths)
+		filterFields(doc, fields) {
+			// Supports nested paths
 			if (Array.isArray(fields)) {
-				let res = {};
-				fields.forEach(n => {
+				const res = {};
+				fields.forEach((n) => {
 					const v = get(doc, n);
-					if (v !== undefined)
-						set(res, n, v);
+					if (v !== undefined) set(res, n, v);
 				});
 				return res;
 			}
-
 			return doc;
 		},
 
-		authorizeFields(this: typeof MoleculerFilesAdapter, fields) {
-			if (this.settings.fields && this.settings.fields.length > 0) {
-				let res: AdapterSettings['fields'] = [];
-				if (Array.isArray(fields) && fields.length > 0) {
-					fields.forEach(f => {
-						if (this.settings.fields.indexOf(f) !== -1) {
-							res.push(f);
-							return;
-						}
+		authorizeFields(fields) {
+			const allowed = this.settings.fields;
+			if (allowed && allowed.length > 0) {
+				let res: string[] = [];
+				const requested: string[] = typeof fields === "string" ? fields.split(" ") : Array.isArray(fields) ? fields : [];
+				requested.forEach((f) => {
+					if (allowed.indexOf(f) !== -1) {
+						res.push(f);
+						return;
+					}
 
-						if (f.indexOf(".") !== -1) {
-							let parts = f.split(".");
-							while (parts.length > 1) {
-								parts.pop();
-								if (this.settings.fields.indexOf(parts.join(".")) !== -1) {
-									res.push(f);
-									break;
-								}
+					if (f.indexOf(".") !== -1) {
+						const parts = f.split(".");
+						while (parts.length > 1) {
+							parts.pop();
+							if (allowed.indexOf(parts.join(".")) !== -1) {
+								res.push(f);
+								break;
 							}
 						}
+					}
 
-						let nestedFields = this.settings.fields.filter(prop => prop.indexOf(f + ".") !== -1);
-						if (nestedFields.length > 0) {
-							res = res.concat(nestedFields);
-						}
-					});
-					//return _.intersection(f, this.settings.fields);
-				}
+					const nested = allowed.filter((prop: string) => prop.indexOf(f + ".") !== -1);
+					if (nested.length > 0) res = res.concat(nested);
+				});
 				return res;
 			}
-
 			return fields;
 		},
 
-		async validateEntity(this: typeof MoleculerFilesAdapter, entity) {
-			if (!isFunction(this.settings.entityValidator))
-				return Promise.resolve(entity);
-
-			let entities = Array.isArray(entity) ? entity : [entity];
-			return Promise.all(entities.map(entity => (this.settings.entityValidator as Function).call(this, entity))).then(() => entity);
+		async validateEntity(entity) {
+			const validator = this.settings.entityValidator;
+			if (typeof validator !== "function") return entity;
+			const entities = Array.isArray(entity) ? entity : [entity];
+			await Promise.all(entities.map((e) => validator.call(this, e)));
+			return entity;
 		},
 
 		encodeID(id) {
@@ -435,154 +392,106 @@ const MoleculerFilesAdapter: ServiceSchema<AdapterSettings> & AdapterProperties 
 			return id;
 		},
 
-		async _find(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, params: QueryParams) {
-			return this.adapter.find(params)
-				.then(docs => this.transformDocuments(ctx, params, docs));
+		async _find(ctx, params) {
+			const docs = await this.adapter.find!(params);
+			return this.transformDocuments(params, ctx, docs);
 		},
 
-		async _count(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, params: QueryParams) {
+		async _count(ctx, params) {
 			// Remove pagination params
-			if (params && params.limit)
-				params.limit = null;
-			if (params && params.offset)
-				params.offset = null;
-			return this.adapter.count(params);
+			if (params && params.limit) params.limit = null;
+			if (params && params.offset) params.offset = null;
+			return this.adapter.count!(params);
 		},
 
-		async _list(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, params: QueryParams) {
-			let countParams = Object.assign({}, params);
+		async _list(ctx, params) {
+			const countParams: QueryParams = Object.assign({}, params);
 			// Remove pagination params
-			if (countParams && countParams.limit)
-				countParams.limit = null;
-			if (countParams && countParams.offset)
-				countParams.offset = null;
-			return Promise.all([
-				// Get rows
-				this.adapter.find(params),
-				// Get count of all rows
-				this.adapter.count(countParams)
-			]).then(res => {
-				return this.transformDocuments(ctx, params, res[0])
-					.then((docs: any) => {
-						return {
-							// Rows
-							rows: docs,
-							// Total rows
-							total: res[1],
-							// Page
-							page: params.page,
-							// Page size
-							pageSize: params.pageSize,
-							// Total pages
-							totalPages: Math.floor((res[1] + params.pageSize - 1) / params.pageSize)
-						};
-					});
-			});
+			if (countParams.limit) countParams.limit = null;
+			if (countParams.offset) countParams.offset = null;
+			const [docs, total] = await Promise.all([this.adapter.find!(params), this.adapter.count!(countParams)]);
+			const rows = await this.transformDocuments(params, ctx, docs);
+			const count = Number(total);
+			return {
+				rows,
+				total,
+				page: params.page,
+				pageSize: params.pageSize,
+				totalPages: Math.floor((count + params.pageSize! - 1) / params.pageSize!),
+			};
 		},
 
-		async _save(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, meta: {}) {
-			let entity = ctx.params as NodeJS.ReadableStream;
-			return this.adapter.save(entity, meta);
+		async _save(ctx, meta) {
+			return this.adapter.save!(ctx.params as NodeJS.ReadableStream, meta);
 		},
 
-		async _get(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, params: QueryParams) {
+		async _get(ctx, params) {
+			let file;
 			try {
-				const file = await this.adapter.findById(params.id);
-				if (file)
-					return file;
-				throw new FileNotFoundError(String(params.id));
-			}
-			catch (err) {
-				if (err.code == 404)
-				throw new FileNotFoundError(String(params.id));
+				file = await this.adapter.findById!(params.id!);
+			} catch (err) {
+				if ((err as { code?: unknown }).code == 404) throw new FileNotFoundError(String(params.id));
 				throw err;
 			}
+			if (!file) throw new FileNotFoundError(String(params.id));
+			return file;
 		},
 
-		async _update(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, meta: Record<string, any>) {
-			let id;
-			Object.keys(meta).forEach(prop => {
-				if (prop == "id" || prop == this.settings.idField)
-					id = this.decodeID(meta[prop]);
-				else
-					throw new FileNotFoundError("No valid ID");
+		async _update(ctx, meta) {
+			let id: FileId | undefined;
+			Object.keys(meta).forEach((prop) => {
+				if (prop == "id" || prop == this.settings.idField) id = this.decodeID(meta[prop]);
+				else throw new FileNotFoundError("No valid ID");
 			});
-			return this.adapter.updateById(ctx.params as NodeJS.ReadableStream, id);
+			return this.adapter.updateById!(ctx.params as NodeJS.ReadableStream, id as FileId);
 		},
 
-		async _remove(this: typeof MoleculerFilesAdapter, ctx: Context<AdapterParams, AdapterMeta>, params: QueryParams) {
+		async _remove(ctx, params) {
 			const id = this.decodeID(params.id);
-			return this.adapter.removeById(id)
-				.then(doc => {
-					if (!doc)
-						return Promise.reject(new FileNotFoundError(String(params.id)));
-					return this.transformDocuments(ctx, params, doc)
-						.then((json: {}) => this.entityChanged("removed", json, ctx).then(() => json));
-				});
-		}
+			const doc = await this.adapter.removeById!(id);
+			if (!doc) throw new FileNotFoundError(String(params.id));
+			const json = await this.transformDocuments(params, ctx, doc);
+			await this.entityChanged("removed", json, ctx);
+			return json;
+		},
 	},
 
-	/**
-	 * Service created lifecycle event handler
-	 */
 	created() {
 		// Compatibility with < 0.4
-		if (isString(this.settings.fields)) {
-			this.settings.fields = this.settings.fields.split(" ");
-		}
+		if (typeof this.settings.fields === "string") this.settings.fields = (this.settings.fields as string).split(" ");
 
-		if (!this.schema.adapter)
-			this.adapter = null;
-		else
-			this.adapter = this.schema.adapter;
-
+		this.adapter = this.schema.adapter || null;
+		if (!this.adapter) throw new Errors.ServiceSchemaError("Please set the store adapter in schema!", undefined);
 		this.adapter.init(this.broker, this);
 
-		// Transform entity validation schema to checker function
-		if (this.broker.validator && isObject(this.settings.entityValidator) && !isFunction(this.settings.entityValidator)) {
-			const check = this.broker.validator.compile(this.settings.entityValidator);
-			this.settings.entityValidator = (entity: any) => {
+		// Transform the entity validation schema to a checker function
+		const validator = this.settings.entityValidator;
+		if (this.broker.validator && validator && typeof validator === "object") {
+			const check = this.broker.validator.compile(validator);
+			this.settings.entityValidator = async (entity: unknown) => {
 				const res = check(entity);
-				if (res === true)
-					return Promise.resolve();
-				else
-					return Promise.reject(new ValidationError("Entity validation error!", null, res));
+				if (res !== true) throw new ValidationError("Entity validation error!", undefined as any, res as any);
 			};
 		}
-
 	},
 
-	/**
-	 * Service started lifecycle event handler
-	 */
-	started() {
-		if (this.adapter) {
-			return new Promise(resolve => {
-				let connecting = () => {
-					this.connect().then(resolve).catch((err: Error) => {
-						this.logger.error("Connection error!", err);
-						setTimeout(() => {
-							this.logger.warn("Reconnecting...");
-							connecting();
-						}, 1000);
-					});
-				};
-
-				connecting();
-			});
+	/** Connects to the storage, retrying every second until it succeeds. */
+	async started() {
+		for (;;) {
+			try {
+				await this.connect();
+				return;
+			} catch (err) {
+				this.logger.error("Connection error!", err);
+				await new Promise((resolve) => setTimeout(resolve, 1000));
+				this.logger.warn("Reconnecting...");
+			}
 		}
-
-		/* istanbul ignore next */
-		return Promise.reject(new Error("Please set the store adapter in schema!"));
 	},
 
-	/**
-	 * Service stopped lifecycle event handler
-	 */
 	stopped() {
-		if (this.adapter)
-			return this.disconnect();
-	}
+		return this.disconnect();
+	},
 };
 
 export default MoleculerFilesAdapter;
