@@ -9,6 +9,7 @@
 		"dist"
 	],
 	"scripts": {
+		"prepare": "test -f dist/index.js || tsc --project tsconfig.build.json",
 		"build": "rm -rf dist && tsc --project tsconfig.build.json",
 		"typecheck": "tsc --noEmit",
 		"lint": "eslint . --ext .ts,.js",
