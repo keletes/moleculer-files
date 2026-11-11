@@ -11,6 +11,8 @@ name: Tag release
 on:
   push:
     branches: [master]
+  # Manual re-run of a release (e.g. after a failed or stuck run); semantic-release only releases from master and only when there are unreleased feat/fix commits, so a manual run is otherwise a no-op.
+  workflow_dispatch:
 
 jobs:
   release:
