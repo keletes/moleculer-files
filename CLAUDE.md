@@ -4,7 +4,7 @@
 
 ## Shape of this repo (like `@keletes/moleculer-db-adapter-mongo`)
 
-- **Published to GitHub Packages as `@keletes/moleculer-files`** (https://npm.pkg.github.com). Consumers alias the old name: `"moleculer-files": "npm:@keletes/moleculer-files@^X"`.
+- **Published to GitHub Packages as `@keletes/moleculer-files`** (https://npm.pkg.github.com). Consumers depend on `"@keletes/moleculer-files": "^X.Y.Z"` and import `@keletes/moleculer-files` directly (no alias of the old name).
 - **`dist/` is built by the release only** (`@semantic-release/exec` runs `yarn build` before publish) and ships in the package. It is gitignored: never commit it.
 - `yarn.lock` is committed (CI installs with `--frozen-lockfile`). `moleculer` is a peer dependency.
 
