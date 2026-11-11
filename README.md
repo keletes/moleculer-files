@@ -1,14 +1,14 @@
-# moleculer-files
+# @keletes/moleculer-files
 
 Moleculer mixin that handles file streams directly from services, over a pluggable storage driver.
 Written in TypeScript, ships compiled output and type declarations.
 
 ## Install
 
-Not on npm; installed from a git tag (compiled output is committed on the release commit, no build step, no auth: the repo is public).
+Published to GitHub Packages as `@keletes/moleculer-files`. Point the scope at the registry (`@keletes:registry=https://npm.pkg.github.com`) and authenticate with a token that can read packages.
 
 ```json
-"moleculer-files": "git+https://github.com/keletes/moleculer-files.git#vX.Y.Z",
+"@keletes/moleculer-files": "^X.Y.Z",
 "moleculer": "^0.14.32"
 ```
 
@@ -17,7 +17,7 @@ Not on npm; installed from a git tag (compiled output is committed on the releas
 ## Usage
 
 ```ts
-import FilesService from "moleculer-files";
+import FilesService from "@keletes/moleculer-files";
 import GridFs from "moleculer-files-gridfs";
 
 export default {

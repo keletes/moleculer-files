@@ -1,6 +1,6 @@
 {
-	"name": "moleculer-files",
-	"version": "0.2.0",
+	"name": "@keletes/moleculer-files",
+	"version": "0.0.0-development",
 	"description": "Mixin to handle file streams directly from services.",
 	"license": "MIT",
 	"main": "dist/index.js",
@@ -8,6 +8,9 @@
 	"files": [
 		"dist"
 	],
+	"publishConfig": {
+		"registry": "https://npm.pkg.github.com"
+	},
 	"scripts": {
 		"build": "rm -rf dist && tsc --project tsconfig.build.json",
 		"typecheck": "tsc --noEmit",
@@ -21,7 +24,10 @@
 		"file"
 	],
 	"author": "Daniele Draganti",
-	"repository": "git@github.com:keletes/moleculer-files.git",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/keletes/moleculer-files.git"
+	},
 	"engines": {
 		"node": ">= 22.x.x"
 	},
@@ -35,7 +41,6 @@
 	"devDependencies": {
 		"@semantic-release/commit-analyzer": "^13.0.1",
 		"@semantic-release/exec": "^6.0.3",
-		"@semantic-release/git": "^11.0.1",
 		"@semantic-release/github": "^12.0.9",
 		"@semantic-release/npm": "^13.1.5",
 		"@semantic-release/release-notes-generator": "^14.1.1",

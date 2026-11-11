@@ -4,10 +4,9 @@
 
 ## Shape of this repo (like `@keletes/moleculer-db-adapter-mongo`)
 
-- **No npm registry.** Consumers install from a git tag: `"moleculer-files": "git+https://github.com/keletes/moleculer-files.git#vX.Y.Z"`. Public repo, so no `PACKAGES_READ_PAT` anywhere.
-- **`dist/` is built and committed by the release commit only** (`@semantic-release/exec` runs `yarn build`, `@semantic-release/git` force-adds `dist/**`). `dist/` is gitignored on purpose: do NOT commit it in PRs.
+- **Published to GitHub Packages as `@keletes/moleculer-files`** (https://npm.pkg.github.com). Consumers depend on `"@keletes/moleculer-files": "^X.Y.Z"` and import `@keletes/moleculer-files` directly (no alias of the old name).
+- **`dist/` is built by the release only** (`@semantic-release/exec` runs `yarn build` before publish) and ships in the package. It is gitignored: never commit it.
 - `yarn.lock` is committed (CI installs with `--frozen-lockfile`). `moleculer` is a peer dependency.
-- Package name stays unscoped (`moleculer-files`): the services depend on it under that name.
 
 ## Commands
 
@@ -35,9 +34,9 @@ CI (`verify.yml`): `verify` (typecheck, lint, build, audit) and `test` are the r
 | `feat!:` or `BREAKING CHANGE:` footer | major |
 | `chore:`, `docs:`, `style:`, `refactor:`, `perf:`, `test:`, `ci:`, `build:` | no release |
 
-On a release, semantic-release builds `dist/`, commits `package.json` + `dist/` as `chore(release): X.Y.Z [skip ci]`, tags `vX.Y.Z` and publishes a GitHub Release. **Never bump the version or push a `v*` tag by hand.**
+On a release, semantic-release builds `dist/`, publishes `@keletes/moleculer-files` to GitHub Packages, tags `vX.Y.Z` and publishes a GitHub Release. No release commit is pushed back; `package.json` `version` is the placeholder `0.0.0-development`. **Never bump the version or push a `v*` tag by hand.**
 
-`tag.yml` pushes through the branch ruleset with the GitHub App token (org secrets `DEPLOY_APP_ID`, `DEPLOY_APP_PRIVATE_KEY`; the app is a bypass actor of the ruleset and must be installed on this repo). Node 22 is required for `yarn install`.
+`tag.yml` creates the tag and release with the GitHub App token (org secrets `DEPLOY_APP_ID`, `DEPLOY_APP_PRIVATE_KEY`; the app must be installed on this repo) and publishes with the job's `GITHUB_TOKEN` (`packages: write`). Node 22 is required for `yarn install`.
 
 ## Branching: check merge status first
 

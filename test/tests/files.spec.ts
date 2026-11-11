@@ -41,7 +41,7 @@ describe("moleculer-files mixin", () => {
 	it("exposes the package metadata", async () => {
 		const svc = build();
 		await broker.start();
-		expect(svc.metadata).toMatchObject({ $category: "files", $name: "moleculer-files" });
+		expect(svc.metadata).toMatchObject({ $category: "files", $name: "@keletes/moleculer-files" });
 	});
 
 	it("runs the adapter lifecycle and afterConnected", async () => {
