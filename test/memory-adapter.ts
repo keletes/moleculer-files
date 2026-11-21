@@ -1,6 +1,6 @@
 import { Readable } from "node:stream";
 import type { Service, ServiceBroker } from "moleculer";
-import type { AdapterSchema, FileId, QueryParams } from "../src";
+import type { AdapterSchema, FileId, FileStat, QueryParams } from "../src";
 
 type Entry = { _id: string; data: Buffer; meta: Record<string, unknown> };
 
@@ -9,6 +9,7 @@ export class MemoryAdapter implements AdapterSchema {
 	files = new Map<string, Entry>();
 	events: string[] = [];
 	failConnect = 0;
+	stat?: (id: FileId) => Promise<FileStat | undefined>;
 	service!: Service;
 	private seq = 0;
 
