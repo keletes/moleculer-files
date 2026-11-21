@@ -36,7 +36,7 @@ Actions (all available through `broker.call`, `rest` routes in brackets):
 | `count` | `query`, driver filters | number |
 | `list` [`GET /`] | `page`, `pageSize`, ... | `{ rows, total, page, pageSize, totalPages }` |
 | `save` [`POST /`] | the file as a readable stream; `ctx.meta` carries `id`/`filename`/`contentType`... | driver specific |
-| `get` [`GET /:id`] | `id` | readable stream; `FileNotFoundError` (404) when missing |
+| `get` [`GET /:id`] | `id` | readable stream (never cached); `FileNotFoundError` (404) when missing. When the driver has `stat`, the response `meta` carries `filename`, `contentType`, `size`, `metadata` |
 | `update` [`PUT /:id`] | stream as params, `ctx.meta.id` | stores a new revision |
 | `remove` [`DELETE /:id`] | `id` | removed entry; `FileNotFoundError` (404) when missing |
 
@@ -46,8 +46,9 @@ Overridable methods: `encodeID`, `decodeID`, `populateDocs`.
 ## Writing a driver
 
 Implement `AdapterSchema` (exported): `init(broker, service)` and `connect()` are required, the rest is what the actions call
-(`find`, `count`, `findById`, `save`, `updateById`, `removeById`, optional `disconnect`, `afterRetrieveTransformID`).
+(`find`, `count`, `findById`, `save`, `updateById`, `removeById`, optional `stat`, `disconnect`, `afterRetrieveTransformID`).
 `findById` resolves to a readable stream, or a falsy value / an error with `code: 404` when the file does not exist;
+`stat(id)` (optional) resolves to `{ filename, contentType?, size?, metadata? }` (`metadata` = the custom metadata stored at save) or a falsy value; `get` copies it into `ctx.meta`.
 `removeById` resolves to the removed entry or a falsy value.
 
 ## Changes in the TypeScript rewrite

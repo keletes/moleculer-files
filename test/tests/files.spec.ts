@@ -87,6 +87,28 @@ describe("moleculer-files mixin", () => {
 			expect(await readAll(stream)).toBe("hello");
 		});
 
+		it("get returns the stat details in the response meta when the adapter has stat", async () => {
+			await save("hello", "a.txt");
+			const details = { filename: "a.txt", contentType: "text/plain", size: 5, metadata: { owner: "x" } };
+			adapter.stat = async () => details;
+			const meta: Record<string, unknown> = {};
+			const res = await broker.call("files.get", { id: "a.txt" }, { meta });
+			expect(await readAll(res as NodeJS.ReadableStream)).toBe("hello");
+			expect(meta).toMatchObject(details);
+			delete adapter.stat;
+		});
+
+		it("get without stat leaves the meta alone", async () => {
+			await save("hello", "a.txt");
+			const meta: Record<string, unknown> = {};
+			await broker.call("files.get", { id: "a.txt" }, { meta });
+			expect(meta).toEqual({});
+		});
+
+		it("get has no cache", () => {
+			expect((broker.getLocalService("files") as any).schema.actions.get.cache).toBeUndefined();
+		});
+
 		it("get of a missing file is a 404 FileNotFoundError", async () => {
 			await expect(broker.call("files.get", { id: "nope" })).rejects.toMatchObject({
 				name: "FileNotFoundError",

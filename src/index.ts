@@ -40,6 +40,14 @@ export type QueryParams = {
  * Contract of a storage driver (GridFS, S3, filesystem...). Assign an instance to the `adapter` property of the
  * service schema.
  */
+export interface FileStat {
+	filename: string;
+	contentType?: string;
+	size?: number;
+	/** The custom metadata stored at save. */
+	metadata?: Record<string, unknown>;
+}
+
 export interface AdapterSchema {
 	init(broker: ServiceBroker, service: Service): void;
 	connect(): Promise<unknown>;
@@ -48,6 +56,8 @@ export interface AdapterSchema {
 	find?(params: QueryParams): Promise<unknown[]>;
 	/** Readable stream of the file, or a falsy value when there is no such file. */
 	findById?(id: FileId): Promise<NodeJS.ReadableStream | null | undefined>;
+	/** Optional details of the file (name, type, size, custom metadata), or a falsy value when there is no such file. */
+	stat?(id: FileId): Promise<FileStat | undefined>;
 	count?(params: QueryParams): Promise<number | void>;
 	/** Stores the stream; `meta` is the Moleculer `ctx.meta`. */
 	save?(entity: NodeJS.ReadableStream, meta: Record<string, unknown>): Promise<unknown>;
@@ -209,10 +219,8 @@ const MoleculerFilesAdapter: ServiceSchema & ThisType<FilesService> = {
 			},
 		},
 
+		// Not cached: the result is a stream
 		get: {
-			cache: {
-				keys: ["id", "fields", "mapping"],
-			},
 			rest: "GET /:id",
 			params: {
 				id: [{ type: "string" }, { type: "number" }],
@@ -427,13 +435,22 @@ const MoleculerFilesAdapter: ServiceSchema & ThisType<FilesService> = {
 
 		async _get(ctx, params) {
 			let file;
+			let stat: FileStat | undefined;
 			try {
 				file = await this.adapter.findById!(params.id!);
+				if (file && this.adapter.stat) stat = await this.adapter.stat(params.id!);
 			} catch (err) {
 				if ((err as { code?: unknown }).code == 404) throw new FileNotFoundError(String(params.id));
 				throw err;
 			}
 			if (!file) throw new FileNotFoundError(String(params.id));
+			if (stat) {
+				const meta = ctx.meta as Record<string, unknown>;
+				meta.filename = stat.filename;
+				meta.contentType = stat.contentType;
+				meta.size = stat.size;
+				meta.metadata = stat.metadata;
+			}
 			return file;
 		},
 
