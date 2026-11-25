@@ -53,6 +53,13 @@ export interface FileDetails extends FileStat {
 	id: FileId;
 }
 
+/** What a listing entry alone tells about a file (`findFiles` without `stat`). */
+export interface FileEntry {
+	id: FileId;
+	filename: string;
+	size?: number;
+}
+
 export interface AdapterSchema {
 	init(broker: ServiceBroker, service: Service): void;
 	connect(): Promise<unknown>;
@@ -70,6 +77,8 @@ export interface AdapterSchema {
 	updateById?(entity: NodeJS.ReadableStream, id: FileId): Promise<unknown>;
 	/** Resolves to the removed entry, or a falsy value when there is no such file. */
 	removeById?(id: FileId): Promise<unknown>;
+	/** Optional bulk remove: resolves to the ids that were removed. `removeFiles` uses it, when present, in one call. */
+	removeMany?(ids: FileId[]): Promise<FileId[]>;
 	afterRetrieveTransformID?(document: unknown, idField: string): unknown;
 }
 
@@ -105,9 +114,9 @@ interface FilesMethods {
 	decodeID(id: any): any;
 	populateDocs?(ctx: Context<any, any>, docs: any, populate: string | string[]): Promise<any>;
 	findFiles(
-		query?: { prefix?: string; filter?: (details: FileDetails) => boolean },
-		options?: { concurrency?: number },
-	): Promise<FileDetails[]>;
+		query?: { prefix?: string; filter?: (file: any) => boolean },
+		options?: { stat?: boolean; concurrency?: number },
+	): Promise<Array<FileEntry | FileDetails>>;
 	removeFiles(ids: FileId[], options?: { concurrency?: number }): Promise<FileId[]>;
 	_find(ctx: Context<any, any>, params: QueryParams): Promise<any>;
 	_count(ctx: Context<any, any>, params: QueryParams): Promise<any>;
@@ -425,33 +434,52 @@ const MoleculerFilesAdapter: ServiceSchema & ThisType<FilesService> = {
 		},
 
 		/**
-		 * Details (`id`, `filename`, `contentType`, `size`, `metadata`) of the files whose listing matches `prefix`
-		 * (as the driver understands it) and that pass `filter`, a predicate run on the details. Method, not an
-		 * action. Needs a driver with `stat`; a file that disappears before its `stat` is skipped.
+		 * Files whose listing matches `prefix` (as the driver understands it) and that pass `filter`. By default one
+		 * listing, mapped to `{ id, filename, size? }` from the entries (filename: `filename`, else `name`, else the
+		 * id; size: `size`, else `length`). With `stat: true` each file also gets `stat(id)` (at most `concurrency`
+		 * at a time): `{ id, filename, contentType, size, metadata }`, a file that disappears before its `stat` is
+		 * skipped, and a driver without `stat` throws. `filter` is a predicate on what is returned. Method, not an action.
 		 */
-		async findFiles({ prefix, filter } = {}, { concurrency = 8 } = {}) {
+		async findFiles({ prefix, filter } = {}, { stat: withStat = false, concurrency = 32 } = {}) {
 			const adapter = this.adapter;
-			if (!adapter.stat) throw new Error("The storage driver has no `stat`: findFiles needs it");
-			const docs = (await adapter.find!(prefix === undefined ? {} : { prefix })) as Record<string, FileId>[];
-			const stat = adapter.stat.bind(adapter);
-			const details = await mapLimit(docs, concurrency, async (doc) => {
-				const id = doc[this.settings.idField];
-				try {
-					const stored = await stat(id);
-					return stored ? { ...stored, id } : undefined;
-				} catch (err) {
-					if ((err as { code?: unknown }).code == 404) return undefined;
-					throw err;
-				}
-			});
-			return details.filter((d): d is FileDetails => !!d && (!filter || filter(d)));
+			if (withStat && !adapter.stat) throw new Error("The storage driver has no `stat`: findFiles with `stat` needs it");
+			const docs = (await adapter.find!(prefix === undefined ? {} : { prefix })) as Record<string, any>[];
+			const idOf = (doc: Record<string, any>): FileId => doc[this.settings.idField];
+			let files: Array<FileEntry | FileDetails | undefined>;
+			if (!withStat) {
+				files = docs.map((doc) => {
+					const id = idOf(doc);
+					return { id, filename: doc.filename ?? doc.name ?? String(id), size: doc.size ?? doc.length };
+				});
+			} else {
+				const stat = adapter.stat!.bind(adapter);
+				files = await mapLimit(docs, concurrency, async (doc) => {
+					const id = idOf(doc);
+					try {
+						const stored = await stat(id);
+						return stored ? { ...stored, id } : undefined;
+					} catch (err) {
+						if ((err as { code?: unknown }).code == 404) return undefined;
+						throw err;
+					}
+				});
+			}
+			return files.filter((f): f is FileEntry | FileDetails => !!f && (!filter || filter(f)));
 		},
 
-		/** Removes the files `ids` (at most `concurrency` at a time); resolves to the ids that existed. Method, not an action. */
+		/**
+		 * Removes the files `ids` and resolves to the ids that existed: one `removeMany(ids)` call when the driver has
+		 * it, else `removeById` per id, at most `concurrency` at a time. Method, not an action.
+		 */
 		async removeFiles(ids, { concurrency = 8 } = {}) {
-			const removed = await mapLimit(ids, concurrency, async (id) => ((await this.adapter.removeById!(id)) ? id : undefined));
+			const adapter = this.adapter;
+			const removed = adapter.removeMany
+				? await adapter.removeMany(ids)
+				: (await mapLimit(ids, concurrency, async (id) => ((await adapter.removeById!(id)) ? id : undefined))).filter(
+					(id): id is FileId => id !== undefined,
+				);
 			await this.clearCache();
-			return removed.filter((id): id is FileId => id !== undefined);
+			return removed;
 		},
 
 		async _find(ctx, params) {

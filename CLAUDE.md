@@ -20,7 +20,7 @@ CI (`verify.yml`): `verify` (typecheck, lint, build, audit) and `test` are the r
 
 ## Gotchas
 
-- `findFiles({ prefix, filter }, { concurrency })` and `removeFiles(ids, { concurrency })` are mixin methods, not actions: `find` then bounded `stat` (or `removeById`). They use the raw `idField` value of the listed entries as the id, so a driver must list entries whose id is what its `stat`/`removeById` take.
+- `findFiles({ prefix, filter }, { stat, concurrency })` and `removeFiles(ids, { concurrency })` are mixin methods, not actions: `findFiles` is one `find` (entries mapped to `{ id, filename, size }`), plus a bounded `stat` per file only with `stat: true`; `removeFiles` is one `removeMany` when the driver has it, else bounded `removeById`. They use the raw `idField` value of the listed entries as the id, so a driver must list entries whose id is what its `stat`/`removeById` take.
 
 - Moleculer merges the service schema when it creates the service, so `service.adapter` is a copy of the instance in the schema: in tests reach the driver through the service, not through the instance you passed.
 - The mixin's `this` type is `FilesService`; drivers implement `AdapterSchema` (exported), `init` and `connect` are required.

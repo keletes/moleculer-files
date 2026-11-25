@@ -263,19 +263,29 @@ describe("moleculer-files mixin", () => {
 			const svc = build();
 			await broker.start();
 			await seed(["a/1", "a/2", "b/1"]);
-			const files = await (svc as any).findFiles({ prefix: "a/" });
+			const files = await (svc as any).findFiles({ prefix: "a/" }, { stat: true });
 			expect(files).toEqual([
 				{ id: "a/1", filename: "a/1", size: 3, metadata: { kind: "x" } },
 				{ id: "a/2", filename: "a/2", size: 3, metadata: { kind: "x" } },
 			]);
-			expect(await (svc as any).findFiles()).toHaveLength(3);
+			expect(await (svc as any).findFiles({}, { stat: true })).toHaveLength(3);
+		});
+
+		it("without stat, lists the entries in one listing and filters them", async () => {
+			const svc = build();
+			await broker.start();
+			await seed(["a/1", "a/22", "b/1"]);
+			adapter.stat = jest.fn();
+			const files = await (svc as any).findFiles({ prefix: "a/", filter: (f: any) => f.size === 4 });
+			expect(files).toEqual([{ id: "a/22", filename: "a/22", size: 4 }]);
+			expect(adapter.stat).not.toHaveBeenCalled();
 		});
 
 		it("applies the filter to the details", async () => {
 			const svc = build();
 			await broker.start();
 			await seed(["a/1", "b/1"]);
-			const files = await (svc as any).findFiles({ filter: (d: any) => d.metadata.kind === "y" });
+			const files = await (svc as any).findFiles({ filter: (d: any) => d.metadata.kind === "y" }, { stat: true });
 			expect(files.map((f: any) => f.id)).toEqual(["b/1"]);
 		});
 
@@ -292,7 +302,7 @@ describe("moleculer-files mixin", () => {
 				running--;
 				return stat(id);
 			};
-			expect(await (svc as any).findFiles({}, { concurrency: 2 })).toHaveLength(6);
+			expect(await (svc as any).findFiles({}, { stat: true, concurrency: 2 })).toHaveLength(6);
 			expect(peak).toBe(2);
 		});
 
@@ -306,7 +316,7 @@ describe("moleculer-files mixin", () => {
 				if (id === "3") throw Object.assign(new Error("gone"), { code: 404 });
 				return stat(id);
 			};
-			expect((await (svc as any).findFiles()).map((f: any) => f.id)).toEqual(["1"]);
+			expect((await (svc as any).findFiles({}, { stat: true })).map((f: any) => f.id)).toEqual(["1"]);
 		});
 
 		it("propagates other stat errors", async () => {
@@ -316,13 +326,13 @@ describe("moleculer-files mixin", () => {
 			adapter.stat = async () => {
 				throw new Error("boom");
 			};
-			await expect((svc as any).findFiles()).rejects.toThrow("boom");
+			await expect((svc as any).findFiles({}, { stat: true })).rejects.toThrow("boom");
 		});
 
 		it("throws when the driver has no stat", async () => {
 			const svc = build();
 			await broker.start();
-			await expect((svc as any).findFiles()).rejects.toThrow("no `stat`");
+			await expect((svc as any).findFiles({}, { stat: true })).rejects.toThrow("no `stat`");
 		});
 
 		it("removeFiles removes the existing files with a bounded concurrency", async () => {
@@ -331,6 +341,19 @@ describe("moleculer-files mixin", () => {
 			await seed(["1", "2"]);
 			expect(await (svc as any).removeFiles(["1", "missing", "2"], { concurrency: 1 })).toEqual(["1", "2"]);
 			expect(adapter.files.size).toBe(0);
+		});
+
+		it("removeFiles calls removeMany once when the driver has it", async () => {
+			const svc = build();
+			await broker.start();
+			await seed(["1", "2"]);
+			const removeMany = jest.fn(async (ids: string[]) => ids.filter((id) => adapter.files.delete(id)));
+			(adapter as any).removeMany = removeMany;
+			const removeById = jest.spyOn(adapter, "removeById");
+			expect(await (svc as any).removeFiles(["1", "missing", "2"])).toEqual(["1", "2"]);
+			expect(removeMany).toHaveBeenCalledTimes(1);
+			expect(removeMany).toHaveBeenCalledWith(["1", "missing", "2"]);
+			expect(removeById).not.toHaveBeenCalled();
 		});
 	});
 });
