@@ -41,12 +41,17 @@ Actions (all available through `broker.call`, `rest` routes in brackets):
 | `remove` [`DELETE /:id`] | `id` | removed entry; `FileNotFoundError` (404) when missing |
 
 Settings: `idField`, `fields`, `pageSize`, `maxPageSize`, `maxLimit`, `entityValidator`. Hooks: `afterConnected`, `entityRemoved`.
+Service methods (not actions, nothing is exposed):
+
+- `this.findFiles({ prefix?, filter? }, { concurrency = 8 } = {})` resolves to `[{ id, filename, contentType, size, metadata }]`. It lists with the driver's `find({ prefix })`, then calls the driver's `stat(id)` on each entry (`id` = the entry's `idField`), at most `concurrency` at a time. `filter(details)` is an optional predicate run after `stat`. A file that disappears in between (`stat` resolves to a falsy value or fails with `code: 404`) is skipped. Throws when the driver has no `stat`.
+- `this.removeFiles(ids, { concurrency = 8 } = {})` calls the driver's `removeById` for each id, at most `concurrency` at a time, clears the cache and resolves to the ids that existed.
+
 Overridable methods: `encodeID`, `decodeID`, `populateDocs`.
 
 ## Writing a driver
 
 Implement `AdapterSchema` (exported): `init(broker, service)` and `connect()` are required, the rest is what the actions call
-(`find`, `count`, `findById`, `save`, `updateById`, `removeById`, optional `stat`, `disconnect`, `afterRetrieveTransformID`).
+(`find` (it may honour a `prefix` param, which `findFiles` passes), `count`, `findById`, `save`, `updateById`, `removeById`, optional `stat`, `disconnect`, `afterRetrieveTransformID`).
 `findById` resolves to a readable stream, or a falsy value / an error with `code: 404` when the file does not exist;
 `stat(id)` (optional) resolves to `{ filename, contentType?, size?, metadata? }` (`metadata` = the custom metadata stored at save) or a falsy value; `get` copies it into `ctx.meta`.
 `removeById` resolves to the removed entry or a falsy value.

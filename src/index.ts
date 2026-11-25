@@ -48,6 +48,11 @@ export interface FileStat {
 	metadata?: Record<string, unknown>;
 }
 
+/** Details of a stored file, as returned by `findFiles`. */
+export interface FileDetails extends FileStat {
+	id: FileId;
+}
+
 export interface AdapterSchema {
 	init(broker: ServiceBroker, service: Service): void;
 	connect(): Promise<unknown>;
@@ -99,6 +104,11 @@ interface FilesMethods {
 	encodeID(id: any): any;
 	decodeID(id: any): any;
 	populateDocs?(ctx: Context<any, any>, docs: any, populate: string | string[]): Promise<any>;
+	findFiles(
+		query?: { prefix?: string; filter?: (details: FileDetails) => boolean },
+		options?: { concurrency?: number },
+	): Promise<FileDetails[]>;
+	removeFiles(ids: FileId[], options?: { concurrency?: number }): Promise<FileId[]>;
 	_find(ctx: Context<any, any>, params: QueryParams): Promise<any>;
 	_count(ctx: Context<any, any>, params: QueryParams): Promise<any>;
 	_list(ctx: Context<any, any>, params: QueryParams): Promise<any>;
@@ -110,6 +120,20 @@ interface FilesMethods {
 
 /** `this` of the handlers and methods of the mixin. */
 export type FilesService = Service<FilesSettings> & FilesMethods & { adapter: AdapterSchema };
+
+/** Maps `items` with `fn`, running at most `concurrency` calls at a time; the results keep the order of `items`. */
+const mapLimit = async <T, R>(items: T[], concurrency: number, fn: (item: T) => Promise<R>): Promise<R[]> => {
+	const results = new Array<R>(items.length);
+	let next = 0;
+	const worker = async () => {
+		while (next < items.length) {
+			const i = next++;
+			results[i] = await fn(items[i]);
+		}
+	};
+	await Promise.all(Array.from({ length: Math.max(1, Math.min(concurrency, items.length)) }, worker));
+	return results;
+};
 
 const splitList = (value: string): string[] => value.replace(/,/g, " ").split(" ");
 
@@ -398,6 +422,36 @@ const MoleculerFilesAdapter: ServiceSchema & ThisType<FilesService> = {
 
 		decodeID(id) {
 			return id;
+		},
+
+		/**
+		 * Details (`id`, `filename`, `contentType`, `size`, `metadata`) of the files whose listing matches `prefix`
+		 * (as the driver understands it) and that pass `filter`, a predicate run on the details. Method, not an
+		 * action. Needs a driver with `stat`; a file that disappears before its `stat` is skipped.
+		 */
+		async findFiles({ prefix, filter } = {}, { concurrency = 8 } = {}) {
+			const adapter = this.adapter;
+			if (!adapter.stat) throw new Error("The storage driver has no `stat`: findFiles needs it");
+			const docs = (await adapter.find!(prefix === undefined ? {} : { prefix })) as Record<string, FileId>[];
+			const stat = adapter.stat.bind(adapter);
+			const details = await mapLimit(docs, concurrency, async (doc) => {
+				const id = doc[this.settings.idField];
+				try {
+					const stored = await stat(id);
+					return stored ? { ...stored, id } : undefined;
+				} catch (err) {
+					if ((err as { code?: unknown }).code == 404) return undefined;
+					throw err;
+				}
+			});
+			return details.filter((d): d is FileDetails => !!d && (!filter || filter(d)));
+		},
+
+		/** Removes the files `ids` (at most `concurrency` at a time); resolves to the ids that existed. Method, not an action. */
+		async removeFiles(ids, { concurrency = 8 } = {}) {
+			const removed = await mapLimit(ids, concurrency, async (id) => ((await this.adapter.removeById!(id)) ? id : undefined));
+			await this.clearCache();
+			return removed.filter((id): id is FileId => id !== undefined);
 		},
 
 		async _find(ctx, params) {
