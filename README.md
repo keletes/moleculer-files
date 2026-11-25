@@ -41,12 +41,17 @@ Actions (all available through `broker.call`, `rest` routes in brackets):
 | `remove` [`DELETE /:id`] | `id` | removed entry; `FileNotFoundError` (404) when missing |
 
 Settings: `idField`, `fields`, `pageSize`, `maxPageSize`, `maxLimit`, `entityValidator`. Hooks: `afterConnected`, `entityRemoved`.
+Service methods (not actions, nothing is exposed):
+
+- `this.findFiles({ prefix?, filter? }, { stat = false, concurrency = 32 } = {})` lists with the driver's `find({ prefix })`. By default that is the only call: it resolves to `[{ id, filename, size? }]` taken from the entries (`id` = the entry's `idField`; `filename` = `filename`, else `name`, else the id; `size` = `size`, else `length`), so a prefix selection costs one listing. With `stat: true` it also calls the driver's `stat(id)` on each entry, at most `concurrency` at a time, and resolves to `[{ id, filename, contentType, size, metadata }]`; a file that disappears in between (`stat` resolves to a falsy value or fails with `code: 404`) is skipped, and a driver without `stat` makes it throw. `filter(file)` is an optional predicate run on what is returned.
+- `this.removeFiles(ids, { concurrency = 8 } = {})` resolves to the ids that existed and clears the cache. It makes one call to the driver's optional `removeMany(ids)` (resolves to the removed ids) when there is one, else calls `removeById` per id, at most `concurrency` at a time.
+
 Overridable methods: `encodeID`, `decodeID`, `populateDocs`.
 
 ## Writing a driver
 
 Implement `AdapterSchema` (exported): `init(broker, service)` and `connect()` are required, the rest is what the actions call
-(`find`, `count`, `findById`, `save`, `updateById`, `removeById`, optional `stat`, `disconnect`, `afterRetrieveTransformID`).
+(`find` (it may honour a `prefix` param, which `findFiles` passes), `count`, `findById`, `save`, `updateById`, `removeById`, optional `stat`, optional `removeMany`, `disconnect`, `afterRetrieveTransformID`).
 `findById` resolves to a readable stream, or a falsy value / an error with `code: 404` when the file does not exist;
 `stat(id)` (optional) resolves to `{ filename, contentType?, size?, metadata? }` (`metadata` = the custom metadata stored at save) or a falsy value; `get` copies it into `ctx.meta`.
 `removeById` resolves to the removed entry or a falsy value.

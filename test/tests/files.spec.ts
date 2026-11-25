@@ -249,4 +249,111 @@ describe("moleculer-files mixin", () => {
 			expect(svc.settings.fields).toEqual(["_id", "length"]);
 		});
 	});
+
+	describe("findFiles and removeFiles", () => {
+		const seed = async (ids: string[]) => {
+			for (const id of ids) await broker.call("files.save", Readable.from([Buffer.from(id)]), { meta: { id } });
+			adapter.stat = async (id) => {
+				const f = adapter.files.get(String(id));
+				return f ? { filename: String(id), size: f.data.length, metadata: { kind: id.toString().startsWith("a") ? "x" : "y" } } : undefined;
+			};
+		};
+
+		it("lists the details of the files under a prefix", async () => {
+			const svc = build();
+			await broker.start();
+			await seed(["a/1", "a/2", "b/1"]);
+			const files = await (svc as any).findFiles({ prefix: "a/" }, { stat: true });
+			expect(files).toEqual([
+				{ id: "a/1", filename: "a/1", size: 3, metadata: { kind: "x" } },
+				{ id: "a/2", filename: "a/2", size: 3, metadata: { kind: "x" } },
+			]);
+			expect(await (svc as any).findFiles({}, { stat: true })).toHaveLength(3);
+		});
+
+		it("without stat, lists the entries in one listing and filters them", async () => {
+			const svc = build();
+			await broker.start();
+			await seed(["a/1", "a/22", "b/1"]);
+			adapter.stat = jest.fn();
+			const files = await (svc as any).findFiles({ prefix: "a/", filter: (f: any) => f.size === 4 });
+			expect(files).toEqual([{ id: "a/22", filename: "a/22", size: 4 }]);
+			expect(adapter.stat).not.toHaveBeenCalled();
+		});
+
+		it("applies the filter to the details", async () => {
+			const svc = build();
+			await broker.start();
+			await seed(["a/1", "b/1"]);
+			const files = await (svc as any).findFiles({ filter: (d: any) => d.metadata.kind === "y" }, { stat: true });
+			expect(files.map((f: any) => f.id)).toEqual(["b/1"]);
+		});
+
+		it("caps the concurrent stat calls", async () => {
+			const svc = build();
+			await broker.start();
+			await seed(["1", "2", "3", "4", "5", "6"]);
+			let running = 0;
+			let peak = 0;
+			const stat = adapter.stat!;
+			adapter.stat = async (id) => {
+				peak = Math.max(peak, ++running);
+				await new Promise((r) => setTimeout(r, 5));
+				running--;
+				return stat(id);
+			};
+			expect(await (svc as any).findFiles({}, { stat: true, concurrency: 2 })).toHaveLength(6);
+			expect(peak).toBe(2);
+		});
+
+		it("skips a file that disappears (falsy stat or 404)", async () => {
+			const svc = build();
+			await broker.start();
+			await seed(["1", "2", "3"]);
+			const stat = adapter.stat!;
+			adapter.stat = async (id) => {
+				if (id === "2") return undefined;
+				if (id === "3") throw Object.assign(new Error("gone"), { code: 404 });
+				return stat(id);
+			};
+			expect((await (svc as any).findFiles({}, { stat: true })).map((f: any) => f.id)).toEqual(["1"]);
+		});
+
+		it("propagates other stat errors", async () => {
+			const svc = build();
+			await broker.start();
+			await seed(["1"]);
+			adapter.stat = async () => {
+				throw new Error("boom");
+			};
+			await expect((svc as any).findFiles({}, { stat: true })).rejects.toThrow("boom");
+		});
+
+		it("throws when the driver has no stat", async () => {
+			const svc = build();
+			await broker.start();
+			await expect((svc as any).findFiles({}, { stat: true })).rejects.toThrow("no `stat`");
+		});
+
+		it("removeFiles removes the existing files with a bounded concurrency", async () => {
+			const svc = build();
+			await broker.start();
+			await seed(["1", "2"]);
+			expect(await (svc as any).removeFiles(["1", "missing", "2"], { concurrency: 1 })).toEqual(["1", "2"]);
+			expect(adapter.files.size).toBe(0);
+		});
+
+		it("removeFiles calls removeMany once when the driver has it", async () => {
+			const svc = build();
+			await broker.start();
+			await seed(["1", "2"]);
+			const removeMany = jest.fn(async (ids: string[]) => ids.filter((id) => adapter.files.delete(id)));
+			(adapter as any).removeMany = removeMany;
+			const removeById = jest.spyOn(adapter, "removeById");
+			expect(await (svc as any).removeFiles(["1", "missing", "2"])).toEqual(["1", "2"]);
+			expect(removeMany).toHaveBeenCalledTimes(1);
+			expect(removeMany).toHaveBeenCalledWith(["1", "missing", "2"]);
+			expect(removeById).not.toHaveBeenCalled();
+		});
+	});
 });

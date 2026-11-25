@@ -28,7 +28,9 @@ export class MemoryAdapter implements AdapterSchema {
 	}
 
 	async find(params: QueryParams) {
-		let rows = [...this.files.values()].map((f) => ({ _id: f._id, length: f.data.length, meta: f.meta }));
+		let rows = [...this.files.values()]
+			.filter((f) => typeof params.prefix !== "string" || f._id.startsWith(params.prefix))
+			.map((f) => ({ _id: f._id, length: f.data.length, meta: f.meta }));
 		if (params.offset) rows = rows.slice(params.offset);
 		if (params.limit) rows = rows.slice(0, params.limit);
 		return rows;
