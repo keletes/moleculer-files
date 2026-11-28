@@ -1,6 +1,6 @@
 import { Readable } from "node:stream";
 import type { Service, ServiceBroker } from "moleculer";
-import type { AdapterSchema, FileId, FileStat, QueryParams } from "../src";
+import type { AdapterSchema, FileDetails, FileId, FileStat, QueryParams } from "../src";
 
 type Entry = { _id: string; data: Buffer; meta: Record<string, unknown> };
 
@@ -45,15 +45,16 @@ export class MemoryAdapter implements AdapterSchema {
 		return f ? Readable.from([f.data]) : undefined;
 	}
 
-	async save(entity: NodeJS.ReadableStream, meta: Record<string, unknown>) {
+	async save(entity: NodeJS.ReadableStream, meta: Record<string, unknown>): Promise<FileDetails> {
 		const chunks: Buffer[] = [];
 		for await (const c of entity) chunks.push(Buffer.from(c as Buffer));
 		const _id = String(meta.id ?? `f${++this.seq}`);
 		this.files.set(_id, { _id, data: Buffer.concat(chunks), meta: { ...meta } });
-		return { _id };
+		const data = this.files.get(_id)!.data;
+		return { id: _id, filename: String(meta.filename ?? _id), size: data.length, metadata: { version: 1 } };
 	}
 
-	async updateById(entity: NodeJS.ReadableStream, id: FileId) {
+	async updateById(entity: NodeJS.ReadableStream, id: FileId): Promise<FileDetails> {
 		return this.save(entity, { id });
 	}
 
