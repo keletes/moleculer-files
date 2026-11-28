@@ -48,7 +48,7 @@ export interface FileStat {
 	metadata?: Record<string, unknown>;
 }
 
-/** Details of a stored file, as returned by `findFiles`. */
+/** Details of a stored file, as returned by `findFiles`, `save` and `updateById`. */
 export interface FileDetails extends FileStat {
 	id: FileId;
 }
@@ -71,10 +71,13 @@ export interface AdapterSchema {
 	/** Optional details of the file (name, type, size, custom metadata), or a falsy value when there is no such file. */
 	stat?(id: FileId): Promise<FileStat | undefined>;
 	count?(params: QueryParams): Promise<number | void>;
-	/** Stores the stream; `meta` is the Moleculer `ctx.meta`. */
-	save?(entity: NodeJS.ReadableStream, meta: Record<string, unknown>): Promise<unknown>;
-	/** Stores a new revision of the file `id`. */
-	updateById?(entity: NodeJS.ReadableStream, id: FileId): Promise<unknown>;
+	/**
+	 * Stores the stream; `meta` is the Moleculer `ctx.meta`. Resolves to the stored file's details; `metadata` is the
+	 * custom metadata as stored (a driver that versions files includes the version there).
+	 */
+	save?(entity: NodeJS.ReadableStream, meta: Record<string, unknown>): Promise<FileDetails>;
+	/** Stores a new revision of the file `id`. Resolves to the stored file's details, like `save`. */
+	updateById?(entity: NodeJS.ReadableStream, id: FileId): Promise<FileDetails>;
 	/** Resolves to the removed entry, or a falsy value when there is no such file. */
 	removeById?(id: FileId): Promise<unknown>;
 	/** Optional bulk remove: resolves to the ids that were removed. `removeFiles` uses it, when present, in one call. */

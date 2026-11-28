@@ -35,9 +35,9 @@ Actions (all available through `broker.call`, `rest` routes in brackets):
 | `find` | `fields`, `limit`, `offset`, `sort`, `query`, driver filters | array of entries |
 | `count` | `query`, driver filters | number |
 | `list` [`GET /`] | `page`, `pageSize`, ... | `{ rows, total, page, pageSize, totalPages }` |
-| `save` [`POST /`] | the file as a readable stream; `ctx.meta` carries `id`/`filename`/`contentType`... | driver specific |
+| `save` [`POST /`] | the file as a readable stream; `ctx.meta` carries `id`/`filename`/`contentType`... | the stored file's `{ id, filename, contentType?, size?, metadata? }`, as returned by the driver |
 | `get` [`GET /:id`] | `id` | readable stream (never cached); `FileNotFoundError` (404) when missing. When the driver has `stat`, the response `meta` carries `filename`, `contentType`, `size`, `metadata` |
-| `update` [`PUT /:id`] | stream as params, `ctx.meta.id` | stores a new revision |
+| `update` [`PUT /:id`] | stream as params, `ctx.meta.id` | the stored file's details, like `save` |
 | `remove` [`DELETE /:id`] | `id` | removed entry; `FileNotFoundError` (404) when missing |
 
 Settings: `idField`, `fields`, `pageSize`, `maxPageSize`, `maxLimit`, `entityValidator`. Hooks: `afterConnected`, `entityRemoved`.
@@ -54,6 +54,7 @@ Implement `AdapterSchema` (exported): `init(broker, service)` and `connect()` ar
 (`find` (it may honour a `prefix` param, which `findFiles` passes), `count`, `findById`, `save`, `updateById`, `removeById`, optional `stat`, optional `removeMany`, `disconnect`, `afterRetrieveTransformID`).
 `findById` resolves to a readable stream, or a falsy value / an error with `code: 404` when the file does not exist;
 `stat(id)` (optional) resolves to `{ filename, contentType?, size?, metadata? }` (`metadata` = the custom metadata stored at save) or a falsy value; `get` copies it into `ctx.meta`.
+`save(stream, meta)` and `updateById(stream, id)` resolve to the stored file's `FileDetails` (`{ id, filename, contentType?, size?, metadata? }`; `metadata` = the custom metadata as stored, which a driver that versions files includes the version in); the actions return it unchanged.
 `removeById` resolves to the removed entry or a falsy value.
 
 ## Changes in the TypeScript rewrite

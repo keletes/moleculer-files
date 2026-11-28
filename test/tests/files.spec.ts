@@ -87,6 +87,12 @@ describe("moleculer-files mixin", () => {
 			expect(await readAll(stream)).toBe("hello");
 		});
 
+		it("save and update return the stored file's details", async () => {
+			expect(await save("hello", "a.txt")).toEqual({ id: "a.txt", filename: "a.txt", size: 5, metadata: { version: 1 } });
+			const updated = await broker.call("files.update", Readable.from([Buffer.from("hi")]), { meta: { id: "a.txt" } });
+			expect(updated).toEqual({ id: "a.txt", filename: "a.txt", size: 2, metadata: { version: 1 } });
+		});
+
 		it("get returns the stat details in the response meta when the adapter has stat", async () => {
 			await save("hello", "a.txt");
 			const details = { filename: "a.txt", contentType: "text/plain", size: 5, metadata: { owner: "x" } };
